@@ -1,0 +1,21 @@
+{
+  "name": "equipment-ledger",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "worker",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:worker": "npm run dev -w worker",
+    "dev:web": "npm run dev -w frontend",
+    "build:web": "npm run build -w frontend",
+    "build:deploy": "npm run build -w frontend && node scripts/sync-static.cjs"
+  },
+  "allowScripts": {
+    "esbuild@0.21.5": true,
+    "esbuild@0.28.1": true,
+    "workerd@1.20260911.1": true,
+    "vue-demi@0.14.10": true
+  }
+}
