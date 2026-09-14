@@ -102,14 +102,10 @@ const form = ref({
 onMounted(async () => {
   try {
     const body = await api.get('/api/dicts');
-    typeList.value = body.data['维修类型'] || [];
+    typeList.value = body.data['维修类别'] || [];
   } catch {
     typeList.value = ['故障维修', '定期检修', '预防性维护', '应急抢修'];
   }
-  try {
-    const body = await api.get('/api/dicts?type=' + encodeURIComponent('维修类型'));
-    if (body.data.items?.length) typeList.value = body.data.items.map((x) => x.value);
-  } catch { /* ignore */ }
   try {
     const body = await api.get('/api/equipment?page=1&pageSize=500');
     equipOptions.value = body.data.items.map((e) => ({ tag_no: e.tag_no, name: e.name }));

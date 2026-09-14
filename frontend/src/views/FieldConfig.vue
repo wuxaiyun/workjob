@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <div class="card toolbar">
-      <h3>字段配置</h3>
+      <h3>设备参数设置</h3>
       <div class="search-row">
         <select v-model="category" @change="load" class="w-180">
           <option value="">全部类别</option>
@@ -45,7 +45,7 @@
 
     <div v-if="showForm" class="lightbox" @click.self="showForm = false">
       <div class="modal">
-        <h3>{{ form.id ? '编辑字段配置' : '新增字段配置' }}</h3>
+        <h3>{{ form.id ? '编辑参数设置' : '新增参数设置' }}</h3>
         <form class="form-grid" @submit.prevent="save">
           <label>
             设备类别 <b class="req">*</b>

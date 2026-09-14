@@ -12,13 +12,11 @@ export function fieldConfigRoutes(): Hono<AppEnv> {
   // GET /api/field-config?category=阀门
   app.get('/field-config', async (c) => {
     const category = c.req.query('category') || '';
-    const { results } = await c.env.DB.prepare(
-      category
-        ? `SELECT * FROM field_config WHERE category = ? ORDER BY sort_order, id`
-        : `SELECT * FROM field_config ORDER BY category, sort_order, id`
-    )
-      .bind(category || undefined)
-      .all();
+    const { results } = category
+      ? await c.env.DB.prepare(`SELECT * FROM field_config WHERE category = ? ORDER BY sort_order, id`)
+          .bind(category)
+          .all()
+      : await c.env.DB.prepare(`SELECT * FROM field_config ORDER BY category, sort_order, id`).all();
     return ok(c, results);
   });
 

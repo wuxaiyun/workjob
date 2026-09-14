@@ -1,8 +1,8 @@
 <template>
   <div class="page">
     <div class="card">
-      <h3>字典维护</h3>
-      <p class="hint">类别和部门来自字典表，可在此新增/改名/删除。已被设备引用的类别或部门不允许删除。</p>
+      <h3>基础选项设置</h3>
+      <p class="hint">类别和部门来自基础选项表，可在此新增/改名/删除。已被设备引用的类别或部门不允许删除。</p>
 
       <div class="type-bar">
         <label>选择类型：</label>
@@ -17,7 +17,7 @@
       <table v-if="currentItems.length">
         <thead>
           <tr>
-            <th>字典值</th>
+            <th>选项值</th>
             <th>操作</th>
           </tr>
         </thead>

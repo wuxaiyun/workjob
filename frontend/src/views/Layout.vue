@@ -42,10 +42,10 @@ const menus = [
   { label: '设备附件', to: 'attachment', disabled: false },
   { label: '检定管理', to: 'calibration', disabled: false },
   { label: '导入导出', to: 'importexport', adminOnly: true },
-  { label: '字段配置', to: 'field-config', adminOnly: true },
+  { label: '设备参数设置', to: 'field-config', adminOnly: true },
+  { label: '基础选项设置', to: 'dicts', adminOnly: true },
   { label: '回收站', to: 'recycle', adminOnly: true },
   { label: '数据备份', to: 'backup', adminOnly: true },
-  { label: '字典维护', to: 'dicts', adminOnly: true },
 ];
 
 function logout() {

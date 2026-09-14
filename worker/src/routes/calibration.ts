@@ -18,11 +18,11 @@ export function calibrationRoutes(): Hono<AppEnv> {
 
     const where: string[] = [];
     const bind: unknown[] = [];
-    if (tagNo) { where.push('tag_no = ?'); bind.push(tagNo); }
-    if (dueBefore) { where.push('due_date <= ?'); bind.push(dueBefore); }
+    if (tagNo) { where.push('c.tag_no = ?'); bind.push(tagNo); }
+    if (dueBefore) { where.push('c.due_date <= ?'); bind.push(dueBefore); }
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
-    const countRow = await c.env.DB.prepare(`SELECT COUNT(*) AS c FROM calibration ${whereSql}`)
+    const countRow = await c.env.DB.prepare(`SELECT COUNT(*) AS c FROM calibration c ${whereSql}`)
       .bind(...bind)
       .first<{ c: number }>();
 

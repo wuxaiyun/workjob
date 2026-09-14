@@ -161,9 +161,8 @@ export function photoRoutes(): Hono<AppEnv> {
     const bind: unknown[] = [];
     if (repairNo) { where = 'WHERE repair_no = ?'; bind.push(repairNo); }
     else if (tagNo) { where = 'WHERE tag_no = ?'; bind.push(tagNo); }
-    else return fail(c, ERR.VALIDATION_ERROR, '缺少 tag_no 或 repair_no');
 
-    const { results } = await c.env.DB.prepare(`SELECT * FROM photo ${where} ORDER BY id DESC`)
+    const { results } = await c.env.DB.prepare(`SELECT * FROM photo ${where} ORDER BY id DESC LIMIT 500`)
       .bind(...bind)
       .all();
 
@@ -199,9 +198,8 @@ export function photoRoutes(): Hono<AppEnv> {
     const bind: unknown[] = [];
     if (repairNo) { where = 'WHERE repair_no = ?'; bind.push(repairNo); }
     else if (tagNo) { where = 'WHERE tag_no = ?'; bind.push(tagNo); }
-    else return fail(c, ERR.VALIDATION_ERROR, '缺少 tag_no 或 repair_no');
 
-    const { results } = await c.env.DB.prepare(`SELECT * FROM attachment ${where} ORDER BY id DESC`)
+    const { results } = await c.env.DB.prepare(`SELECT * FROM attachment ${where} ORDER BY id DESC LIMIT 500`)
       .bind(...bind)
       .all();
     const now = Math.floor(Date.now() / 1000);
