@@ -3,7 +3,6 @@
     <aside class="sidebar">
       <div class="brand">设备台账</div>
       <nav>
-        <router-link :to="{ name: 'home' }" class="nav-item">首页</router-link>
         <template v-for="m in menus" :key="m.to">
           <router-link v-if="!m.disabled && !(m.adminOnly && !auth.isAdmin)" :to="{ name: m.to }" class="nav-item">{{ m.label }}</router-link>
           <span v-else-if="m.disabled" class="nav-item nav-disabled">{{ m.label }}（开发中）</span>
