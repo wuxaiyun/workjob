@@ -1,0 +1,7 @@
+node_modules/
+frontend/dist/
+worker/public/
+worker/.dev.vars
+.wrangler/
+*.log
+.DS_Store
