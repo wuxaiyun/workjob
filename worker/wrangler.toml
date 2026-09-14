@@ -1,6 +1,7 @@
 name = "equipment-ledger"
 main = "src/index.ts"
 compatibility_date = "2026-09-01"
+workers_dev = true
 
 # 一体化部署：前端构建产物同步到 public/ 后，由 Worker 一并托管
 [assets]
@@ -21,6 +22,10 @@ migrations_dir = "migrations"
 [[r2_buckets]]
 binding = "PHOTOS"
 bucket_name = "equipment-ledger-photos"
+
+[[routes]]
+pattern = "xiaobaikejizhan.dpdns.org"
+custom_domain = true
 
 [observability]
 enabled = true
