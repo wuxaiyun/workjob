@@ -52,9 +52,11 @@ async function submit() {
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #1e3a8a, #2563eb);
+  padding: 16px;
 }
 .login-card {
   width: 360px;
+  max-width: 100%;
   background: #fff;
   border-radius: 12px;
   padding: 32px;

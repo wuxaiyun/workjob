@@ -88,3 +88,28 @@ textarea:focus {
   margin: 0 auto;
   padding: 16px;
 }
+
+/* 响应式：手机端（<=768px）—— 各页面内部固定列数的 .grid / 定宽筛选控件 / 超宽表格
+   在窄屏下会挤在一起显示不正常，这里统一兜底修正 */
+@media (max-width: 768px) {
+  .page {
+    padding: 10px !important;
+  }
+  .grid {
+    grid-template-columns: 1fr !important;
+  }
+  .card {
+    padding: 12px !important;
+    overflow-x: auto;
+  }
+  .search-row {
+    min-width: 0 !important;
+    width: 100%;
+    flex-wrap: wrap !important;
+  }
+  .w-140,
+  .w-120,
+  .w-100 {
+    width: 100% !important;
+  }
+}

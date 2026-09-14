@@ -1,22 +1,24 @@
 <template>
-  <div class="layout">
+  <div class="layout" :class="{ 'sidebar-open': sidebarOpen }">
+    <div class="sidebar-backdrop" v-if="sidebarOpen" @click="sidebarOpen = false"></div>
     <aside class="sidebar">
       <div class="brand">设备台账</div>
       <nav>
         <template v-for="m in menus" :key="m.to">
-          <router-link v-if="!m.disabled && !(m.adminOnly && !auth.isAdmin)" :to="{ name: m.to }" class="nav-item">{{ m.label }}</router-link>
+          <router-link v-if="!m.disabled && !(m.adminOnly && !auth.isAdmin)" :to="{ name: m.to }" class="nav-item" @click="sidebarOpen = false">{{ m.label }}</router-link>
           <span v-else-if="m.disabled" class="nav-item nav-disabled">{{ m.label }}（开发中）</span>
         </template>
       </nav>
     </aside>
     <div class="main">
       <header class="topbar">
+        <button class="menu-btn" @click="sidebarOpen = true" aria-label="打开菜单">☰</button>
         <div class="head-links">
           <span v-if="auth.isAdmin" class="head-tag admin">管理员</span>
           <span v-else class="head-tag">维修人员</span>
         </div>
         <div class="user-box">
-          <span>{{ auth.user?.real_name || auth.user?.username }}</span>
+          <span class="user-name">{{ auth.user?.real_name || auth.user?.username }}</span>
           <router-link :to="{ name: 'change-password' }"><button class="secondary">修改密码</button></router-link>
           <button class="secondary" @click="logout">退出</button>
         </div>
@@ -29,11 +31,15 @@
 </template>
 
 <script setup>
-import { useRouter } from 'vue-router';
+import { ref, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../store/auth';
 
 const auth = useAuthStore();
 const router = useRouter();
+const route = useRoute();
+const sidebarOpen = ref(false);
+watch(() => route.fullPath, () => { sidebarOpen.value = false; });
 
 const menus = [
   { label: '首页', to: 'home', disabled: false },
@@ -135,5 +141,58 @@ a.nav-item.router-link-active {
   flex: 1;
   padding: 16px;
   overflow: auto;
+}
+.menu-btn {
+  display: none;
+  background: none;
+  color: var(--text);
+  font-size: 20px;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+.sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .menu-btn {
+    display: inline-flex;
+  }
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 220px;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    z-index: 1001;
+  }
+  .layout.sidebar-open .sidebar {
+    transform: translateX(0);
+  }
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 1000;
+  }
+  .topbar {
+    padding: 0 10px;
+    gap: 8px;
+  }
+  .head-links {
+    display: none;
+  }
+  .user-box {
+    gap: 6px;
+  }
+  .user-name {
+    display: none;
+  }
+  .content {
+    padding: 10px;
+  }
 }
 </style>
