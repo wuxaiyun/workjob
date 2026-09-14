@@ -3,7 +3,7 @@ import type { AppEnv } from '../types';
 import { ERR, fail, ok, signAccess, verifyAccess } from '../utils';
 import { authRequired, adminOnly } from '../middleware';
 
-const ACCESS_TTL = 60 * 60;
+const ACCESS_TTL = 15 * 60; // 15 分钟
 
 // 备份：导出全库业务数据 JSON 到 R2 + 日志（V2.0）
 export function backupRoutes(): Hono<AppEnv> {
@@ -14,7 +14,7 @@ export function backupRoutes(): Hono<AppEnv> {
     const id = c.req.param('id');
     const exp = c.req.query('exp') || '';
     const k = c.req.query('k') || '';
-    if (!(await verifyAccess(c.env.JWT_SECRET, id, exp, k))) {
+    if (!(await verifyAccess(c.env.FILE_ACCESS_SECRET, id, exp, k))) {
       return fail(c, ERR.UNAUTHORIZED, '链接无效或已过期', 401);
     }
     const row = await c.env.DB.prepare(`SELECT * FROM backup_log WHERE id = ?`)
@@ -40,7 +40,11 @@ export function backupRoutes(): Hono<AppEnv> {
     ];
     const dump: Record<string, unknown[]> = {};
     for (const t of tables) {
-      const { results } = await c.env.DB.prepare(`SELECT * FROM ${t}`).all();
+      // 敏感字段不入备份：users 表排除密码哈希
+      const cols = t === 'users'
+        ? 'id, username, real_name, role, status, created_at'
+        : '*';
+      const { results } = await c.env.DB.prepare(`SELECT ${cols} FROM ${t}`).all();
       dump[t] = results;
     }
     const ts = new Date();
@@ -68,7 +72,7 @@ export function backupRoutes(): Hono<AppEnv> {
     const now = Math.floor(Date.now() / 1000);
     const items = await Promise.all(results.map(async (r) => ({
       ...r,
-      download_url: `/api/backup/${r.id}/download?exp=${now + ACCESS_TTL}&k=${await signAccess(c.env.JWT_SECRET, Number(r.id), now + ACCESS_TTL)}`,
+      download_url: `/api/backup/${r.id}/download?exp=${now + ACCESS_TTL}&k=${await signAccess(c.env.FILE_ACCESS_SECRET, Number(r.id), now + ACCESS_TTL)}`,
     })));
     return ok(c, items);
   });

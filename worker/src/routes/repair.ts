@@ -137,26 +137,42 @@ export function repairRoutes(): Hono<AppEnv> {
       .first<{ tag_no: string; name: string; project: string | null; department: string | null; location: string | null }>();
     if (!equip) return fail(c, ERR.EQUIPMENT_NOT_FOUND, '设备不存在', 404);
 
-    // 可选字段中带快照的（photo upload 阶段在 repair 创建前时无需，创建后再传）
-    const repairNo = await nextRepairNo(c.env.DB);
     const status = String(body.status || '待处理').trim();
     const worker = String(body.worker || user.real_name || user.username).trim();
 
-    const ins = await c.env.DB.prepare(
-      `INSERT INTO repair
-        (repair_no, tag_no, equipment_name_snapshot, project_snapshot, department_snapshot, location_snapshot,
-         report_date, repair_date, repair_type, status, worker, fault_desc, cause,
-         repair_content, action, remark, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-      .bind(
-        repairNo, tagNo, equip.name, equip.project ?? null, equip.department ?? null, equip.location ?? null,
-        reportDate, body.repair_date ? String(body.repair_date).trim() : null, repairType, status, worker,
-        faultDesc, body.cause ? String(body.cause).trim() : null,
-        repairContent, body.action ? String(body.action).trim() : null,
-        body.remark ? String(body.remark).trim() : null, user.username
-      )
-      .run();
+    // 生成单号 + 插入（repair_no 有 UNIQUE 约束，并发冲突时重试生成新单号）
+    let repairNo = '';
+    let insId = 0;
+    let attempt = 0;
+    for (; attempt < 5; attempt++) {
+      repairNo = await nextRepairNo(c.env.DB);
+      try {
+        const ins = await c.env.DB.prepare(
+          `INSERT INTO repair
+            (repair_no, tag_no, equipment_name_snapshot, project_snapshot, department_snapshot, location_snapshot,
+             report_date, repair_date, repair_type, status, worker, fault_desc, cause,
+             repair_content, action, remark, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+          .bind(
+            repairNo, tagNo, equip.name, equip.project ?? null, equip.department ?? null, equip.location ?? null,
+            reportDate, body.repair_date ? String(body.repair_date).trim() : null, repairType, status, worker,
+            faultDesc, body.cause ? String(body.cause).trim() : null,
+            repairContent, body.action ? String(body.action).trim() : null,
+            body.remark ? String(body.remark).trim() : null, user.username
+          )
+          .run();
+        insId = Number(ins.meta.last_row_id);
+        break;
+      } catch (e) {
+        const msg = String((e as Error)?.message || e);
+        if (!/UNIQUE|constraint/i.test(msg)) {
+          return fail(c, ERR.DATABASE_ERROR, '数据库写入失败', 500);
+        }
+        // UNIQUE 冲突（单号被并发抢占），继续下一轮重试
+      }
+    }
+    if (attempt >= 5) return fail(c, ERR.DATABASE_ERROR, '维修单号生成冲突，请重试', 500);
 
     await c.env.DB.prepare(
       `INSERT INTO operation_log (operator, action, target_table, target_key, new_value)
@@ -165,7 +181,7 @@ export function repairRoutes(): Hono<AppEnv> {
       .bind(user.username, repairNo, JSON.stringify({ tag_no: tagNo, fault_desc: faultDesc }))
       .run();
 
-    return ok(c, { repair_no: repairNo, id: Number(ins.meta.last_row_id) }, '维修记录创建成功');
+    return ok(c, { repair_no: repairNo, id: insId }, '维修记录创建成功');
   });
 
   // ============ 修改（version 乐观锁 + 角色权限） ============
@@ -243,8 +259,17 @@ export function repairRoutes(): Hono<AppEnv> {
 
     const row = await c.env.DB.prepare(`SELECT * FROM repair WHERE id = ? AND deleted_at IS NULL`)
       .bind(id)
-      .first<{ id: number; created_by: string; status: string; repair_no: string }>();
+      .first<{ id: number; created_by: string; status: string; repair_no: string; version: number }>();
     if (!row) return fail(c, ERR.REPAIR_NOT_FOUND, '维修记录不存在', 404);
+
+    // 可选乐观锁：携带 version 时校验，防并发覆盖
+    const clientVersion = body.version === undefined || body.version === null ? null : Number(body.version);
+    if (clientVersion !== null) {
+      if (!Number.isInteger(clientVersion)) return fail(c, ERR.VALIDATION_ERROR, '版本号 version 不合法');
+      if (clientVersion !== row.version) {
+        return fail(c, ERR.VERSION_CONFLICT, `版本冲突：当前版本 v${row.version}，请刷新后重试`, 409);
+      }
+    }
 
     if (user.role !== 'admin') {
       const own = row.created_by === user.username;
@@ -252,9 +277,18 @@ export function repairRoutes(): Hono<AppEnv> {
       if (TERMINAL_STATUS.has(row.status)) return fail(c, ERR.PERMISSION_DENIED, '已完成/已关闭的工单不可再改状态', 403);
     }
 
-    await c.env.DB.prepare(`UPDATE repair SET status = ?, updated_at = ? WHERE id = ?`)
-      .bind(status, nowString(), id)
+    const bindStatus: unknown[] = [status, nowString(), id];
+    let where = 'id = ?';
+    if (clientVersion !== null) {
+      where += ' AND version = ?';
+      bindStatus.push(clientVersion);
+    }
+    const upd = await c.env.DB.prepare(`UPDATE repair SET status = ?, updated_at = ? WHERE ${where}`)
+      .bind(...bindStatus)
       .run();
+    if (upd.meta.changes === 0) {
+      return fail(c, ERR.VERSION_CONFLICT, '状态已被他人更新，请刷新后重试', 409);
+    }
 
     await c.env.DB.prepare(
       `INSERT INTO operation_log (operator, action, target_table, target_key, old_value, new_value)

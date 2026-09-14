@@ -3,6 +3,7 @@ export interface Env {
   PHOTOS: R2Bucket;
   JWT_SECRET: string;
   JWT_EXPIRES_IN: string;
+  FILE_ACCESS_SECRET: string;
 }
 
 export interface UserPayload {

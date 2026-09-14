@@ -5,7 +5,7 @@ import { authRequired, adminOnly } from '../middleware';
 
 const MAX_PHOTO_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_ATT_SIZE = 30 * 1024 * 1024;   // 30MB
-const ACCESS_TTL = 60 * 60;              // 1 小时
+const ACCESS_TTL = 15 * 60;              // 15 分钟
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -29,7 +29,7 @@ export function photoRoutes(): Hono<AppEnv> {
     const k = c.req.query('k') || '';
     const thumb = c.req.query('t') === '1';
     const signId = thumb ? `t${id}` : id;
-    if (!(await verifyAccess(c.env.JWT_SECRET, signId, exp, k))) {
+    if (!(await verifyAccess(c.env.FILE_ACCESS_SECRET, signId, exp, k))) {
       return fail(c, ERR.UNAUTHORIZED, '链接无效或已过期', 401);
     }
     const row = await c.env.DB.prepare(`SELECT id, object_key, thumbnail_key FROM photo WHERE id = ?`)
@@ -44,7 +44,7 @@ export function photoRoutes(): Hono<AppEnv> {
     return new Response(obj.body ?? null, {
       headers: {
         'Content-Type': obj.httpMetadata?.contentType || 'application/octet-stream',
-        'Cache-Control': 'private, max-age=3600',
+        'Cache-Control': 'private, max-age=900',
       },
     });
   });
@@ -54,7 +54,7 @@ export function photoRoutes(): Hono<AppEnv> {
     const id = c.req.param('id');
     const exp = c.req.query('exp') || '';
     const k = c.req.query('k') || '';
-    if (!(await verifyAccess(c.env.JWT_SECRET, id, exp, k))) {
+    if (!(await verifyAccess(c.env.FILE_ACCESS_SECRET, id, exp, k))) {
       return fail(c, ERR.UNAUTHORIZED, '链接无效或已过期', 401);
     }
     const row = await c.env.DB.prepare(`SELECT id, object_key, file_name FROM attachment WHERE id = ?`)
@@ -67,7 +67,7 @@ export function photoRoutes(): Hono<AppEnv> {
       headers: {
         'Content-Type': obj.httpMetadata?.contentType || 'application/octet-stream',
         'Content-Disposition': `attachment; filename="${row.file_name.replace(/"/g, '')}"`,
-        'Cache-Control': 'private, max-age=3600',
+        'Cache-Control': 'private, max-age=900',
       },
     });
   });
@@ -170,9 +170,9 @@ export function photoRoutes(): Hono<AppEnv> {
     const now = Math.floor(Date.now() / 1000);
     const withUrl = await Promise.all(results.map(async (p) => ({
       ...p,
-      image_url: `/api/photo/${p.id}/file?exp=${now + ACCESS_TTL}&k=${await signAccess(c.env.JWT_SECRET, Number(p.id), now + ACCESS_TTL)}`,
+      image_url: `/api/photo/${p.id}/file?exp=${now + ACCESS_TTL}&k=${await signAccess(c.env.FILE_ACCESS_SECRET, Number(p.id), now + ACCESS_TTL)}`,
       thumb_url: p.thumbnail_key
-        ? `/api/photo/${p.id}/file?t=1&exp=${now + ACCESS_TTL}&k=${await signAccess(c.env.JWT_SECRET, `t${Number(p.id)}`, now + ACCESS_TTL)}`
+        ? `/api/photo/${p.id}/file?t=1&exp=${now + ACCESS_TTL}&k=${await signAccess(c.env.FILE_ACCESS_SECRET, `t${Number(p.id)}`, now + ACCESS_TTL)}`
         : null,
     })));
     return ok(c, withUrl);
@@ -207,7 +207,7 @@ export function photoRoutes(): Hono<AppEnv> {
     const now = Math.floor(Date.now() / 1000);
     const withUrl = await Promise.all(results.map(async (a) => ({
       ...a,
-      download_url: `/api/attachment/${a.id}/file?exp=${now + ACCESS_TTL}&k=${await signAccess(c.env.JWT_SECRET, Number(a.id), now + ACCESS_TTL)}`,
+      download_url: `/api/attachment/${a.id}/file?exp=${now + ACCESS_TTL}&k=${await signAccess(c.env.FILE_ACCESS_SECRET, Number(a.id), now + ACCESS_TTL)}`,
     })));
     return ok(c, withUrl);
   });

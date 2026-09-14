@@ -229,7 +229,7 @@ async function applyStatus() {
   if (!d.value || nextStatus.value === d.value.status) return;
   if (!confirm(`确认将状态更新为「${nextStatus.value}」？`)) return;
   try {
-    await setRepairStatus(d.value.id, nextStatus.value);
+    await setRepairStatus(d.value.id, nextStatus.value, d.value.version);
     await load();
   } catch (e) {
     alert(e.error?.message || '更新失败');

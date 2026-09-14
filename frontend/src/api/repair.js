@@ -21,8 +21,10 @@ export function updateRepair(id, payload) {
   return api.put(`/api/repair/${id}`, payload);
 }
 
-export function setRepairStatus(id, status) {
-  return api.patch(`/api/repair/${id}/status`, { status });
+export function setRepairStatus(id, status, version) {
+  const payload = { status };
+  if (version !== undefined && version !== null) payload.version = version;
+  return api.patch(`/api/repair/${id}/status`, payload);
 }
 
 export function removeRepair(id) {
