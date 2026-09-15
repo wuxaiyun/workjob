@@ -355,5 +355,33 @@ export function equipmentRoutes(): Hono<AppEnv> {
     return ok(c, { tag_no: tagNo }, `已${status === '停用' ? '停用' : '更新状态'}`);
   });
 
+  // ============ 删除（软删除，进回收站；仅管理员） ============
+  // DELETE /api/equipment/:tag_no
+  app.delete('/:tag_no', adminOnly(), async (c) => {
+    const user = c.get('user');
+    const tagNo = c.req.param('tag_no');
+    const row = await c.env.DB.prepare(
+      `SELECT id, name, status FROM equipment WHERE tag_no = ? AND deleted_at IS NULL`
+    )
+      .bind(tagNo)
+      .first<{ id: number; name: string; status: string }>();
+    if (!row) return fail(c, ERR.EQUIPMENT_NOT_FOUND, '设备不存在', 404);
+
+    await c.env.DB.prepare(
+      `UPDATE equipment SET deleted_at = ?, deleted_by = ?, status = '停用', updated_at = ?, updated_by = ? WHERE tag_no = ?`
+    )
+      .bind(nowString(), user.username, nowString(), user.username, tagNo)
+      .run();
+
+    await c.env.DB.prepare(
+      `INSERT INTO operation_log (operator, action, target_table, target_key, old_value, new_value)
+       VALUES (?, '删除', 'equipment', ?, ?, ?)`
+    )
+      .bind(user.username, tagNo, JSON.stringify({ name: row.name, status: row.status }), '停用(回收站)')
+      .run();
+
+    return ok(c, { tag_no: tagNo }, '已移入回收站');
+  });
+
   return app;
 }

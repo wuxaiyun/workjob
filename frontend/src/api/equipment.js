@@ -25,6 +25,10 @@ export function setEquipmentStatus(tagNo, payload) {
   return api.patch(`/api/equipment/${encodeURIComponent(tagNo)}/status`, payload);
 }
 
+export function removeEquipment(tagNo) {
+  return api.del(`/api/equipment/${encodeURIComponent(tagNo)}`);
+}
+
 export function getCategoryFields(category) {
   return api.get(`/api/equipment/category-fields?category=${encodeURIComponent(category)}`);
 }

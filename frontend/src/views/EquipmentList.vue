@@ -55,6 +55,7 @@
               <router-link :to="{ name: 'equipment-edit', params: { tagNo: it.tag_no } }">编辑</router-link>
               <a v-if="auth.isAdmin && it.status !== '停用'" href="javascript:;" @click="toggleStatus(it, '停用')">停用</a>
               <a v-if="auth.isAdmin && it.status === '停用'" href="javascript:;" @click="toggleStatus(it, '在用')">启用</a>
+              <a v-if="auth.isAdmin" href="javascript:;" class="danger-link" @click="remove(it)">删除</a>
             </td>
           </tr>
         </tbody>
@@ -74,7 +75,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../api/client';
-import { listEquipment, setEquipmentStatus } from '../api/equipment';
+import { listEquipment, setEquipmentStatus, removeEquipment } from '../api/equipment';
 import { LIST_FIELDS } from '../utils/fields';
 import { useAuthStore } from '../store/auth';
 
@@ -139,6 +140,16 @@ async function toggleStatus(it, status) {
   }
 }
 
+async function remove(it) {
+  if (!confirm(`确认删除设备「${it.name}（${it.tag_no}）」？删除后移入回收站，可在回收站恢复。`)) return;
+  try {
+    await removeEquipment(it.tag_no);
+    await fetchList();
+  } catch (e) {
+    alert(e.error?.message || '删除失败');
+  }
+}
+
 onMounted(async () => {
   fetchList();
   try {
@@ -200,6 +211,7 @@ th {
 .badge.muted { background: #f3f4f6; color: #6b7280; }
 .badge.danger { background: #fee2e2; color: #b91c1c; }
 .ops a { margin-right: 8px; }
+.ops .danger-link { color: var(--danger, #dc2626); }
 .empty {
   text-align: center;
   color: var(--text-light);

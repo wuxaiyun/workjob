@@ -21,6 +21,7 @@ const routes = [
       { path: 'calibration', name: 'calibration', component: () => import('../views/CalibrationManage.vue') },
       { path: 'import-export', name: 'importexport', component: () => import('../views/ImportExport.vue'), meta: { adminOnly: true } },
       { path: 'field-config', name: 'field-config', component: () => import('../views/FieldConfig.vue'), meta: { adminOnly: true } },
+      { path: 'users', name: 'users', component: () => import('../views/UserManage.vue'), meta: { adminOnly: true } },
       { path: 'recycle', name: 'recycle', component: () => import('../views/RecycleBin.vue'), meta: { adminOnly: true } },
       { path: 'backup', name: 'backup', component: () => import('../views/BackupManage.vue'), meta: { adminOnly: true } },
       { path: 'dicts', name: 'dicts', component: () => import('../views/DictManage.vue'), meta: { adminOnly: true } },
