@@ -5,3 +5,9 @@ worker/.dev.vars
 .wrangler/
 *.log
 .DS_Store
+
+# 业务数据 / 迁移资料（勿提交到仓库）
+旧资料/
+*.xls
+*.xlsx
+*.csv
