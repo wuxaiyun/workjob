@@ -84,7 +84,6 @@ export function importExportRoutes(): Hono<AppEnv> {
     const mode = body.mode === 'upsert' ? 'upsert' : 'insert';
     const dryRun = body.dry_run === true;
 
-    // 校验 + 识别已存在
     // 分类专属字段映射：label → field_key（冗余列会静默忽略）
     const { results: cfgRows } = await c.env.DB.prepare(
       `SELECT DISTINCT field_label, field_key FROM field_config`
@@ -96,75 +95,93 @@ export function importExportRoutes(): Hono<AppEnv> {
       if (!extraMap.has(f.field_label)) extraMap.set(f.field_label, f.field_key);
     }
 
+    // 第一遍：纯结构校验（不查库），避免大批量导入时逐行查询数据库
+    // 超出 Workers 单次请求的资源限制（曾在千行级导入时触发 500）
     const tagNos = new Set<string>();
-    const validated: { tag_no: string; data: Record<string, unknown>; extra: Record<string, unknown>; exists: boolean; error?: string }[] = [];
+    const failRows: { tag_no: string; error: string }[] = [];
+    const parsedOk: { tag_no: string; data: Record<string, unknown>; extra: Record<string, unknown> }[] = [];
     for (let i = 0; i < rows.length; i++) {
       const raw = rows[i];
       if (!raw || typeof raw !== 'object') {
-        validated.push({ tag_no: '', data: {}, extra: {}, exists: false, error: `第 ${i + 1} 行数据不是对象` });
+        failRows.push({ tag_no: '', error: `第 ${i + 1} 行数据不是对象` });
         continue;
       }
       const r = validateRow(raw as Record<string, unknown>, extraMap, extraKeys);
       if ('error' in r) {
-        validated.push({ tag_no: r.tag_no, data: {}, extra: {}, exists: false, error: `第 ${i + 1} 行 ${r.error}` });
+        failRows.push({ tag_no: r.tag_no, error: `第 ${i + 1} 行 ${r.error}` });
         continue;
       }
       if (tagNos.has(r.tag_no)) {
-        validated.push({ tag_no: r.tag_no, data: {}, extra: {}, exists: false, error: `第 ${i + 1} 行位号在文件内重复` });
+        failRows.push({ tag_no: r.tag_no, error: `第 ${i + 1} 行位号在文件内重复` });
         continue;
       }
       tagNos.add(r.tag_no);
-      const existing = await c.env.DB.prepare(
-        `SELECT id FROM equipment WHERE tag_no = ?`
-      ).bind(r.tag_no).first();
-      const exists = !!existing;
-      if (mode === 'insert' && exists) {
-        validated.push({ tag_no: r.tag_no, data: {}, extra: {}, exists: true, error: '位号已存在' });
-        continue;
-      }
-      validated.push({ tag_no: r.tag_no, data: r.data, extra: r.extra, exists, error: undefined });
+      parsedOk.push(r);
     }
 
-    const okRows = validated.filter((v) => !v.error);
-    const failRows = validated.filter((v) => v.error);
-    const toCreate = okRows.filter((v) => !v.exists);
-    const toUpdate = okRows.filter((v) => v.exists);
+    // 第二遍：批量查已存在位号 + 现有 extra_data（IN 分片，替代逐行 SELECT）
+    const CHUNK = 100;
+    const existingMap = new Map<string, string | null>(); // tag_no -> extra_data
+    const tagNoList = parsedOk.map((v) => v.tag_no);
+    for (let i = 0; i < tagNoList.length; i += CHUNK) {
+      const chunk = tagNoList.slice(i, i + CHUNK);
+      const placeholders = chunk.map(() => '?').join(', ');
+      const { results } = await c.env.DB.prepare(
+        `SELECT tag_no, extra_data FROM equipment WHERE tag_no IN (${placeholders})`
+      )
+        .bind(...chunk)
+        .all<{ tag_no: string; extra_data: string | null }>();
+      for (const row of results) existingMap.set(row.tag_no, row.extra_data);
+    }
+
+    let usableRows = parsedOk.map((v) => ({ ...v, exists: existingMap.has(v.tag_no) }));
+    if (mode === 'insert') {
+      for (const v of usableRows) {
+        if (v.exists) failRows.push({ tag_no: v.tag_no, error: '位号已存在' });
+      }
+      usableRows = usableRows.filter((v) => !v.exists);
+    }
+
+    const toCreate = usableRows.filter((v) => !v.exists);
+    const toUpdate = usableRows.filter((v) => v.exists);
 
     let successCount = 0;
     if (!dryRun) {
-      for (const v of okRows) {
-        if (v.exists) {
-          const sets = ['updated_at = ?', 'updated_by = ?', 'version = version + 1'];
-          const params: unknown[] = [nowString(), user.username];
-          for (const [key, val] of Object.entries(v.data)) {
-            if (key === 'tag_no') continue;
-            sets.push(`${key} = ?`);
-            params.push(val === undefined ? null : val);
+      // 第三遍：批量写入（db.batch 分片提交，避免上千次串行 await 拖垮单次请求）
+      for (let i = 0; i < usableRows.length; i += CHUNK) {
+        const chunk = usableRows.slice(i, i + CHUNK);
+        const stmts = chunk.map((v) => {
+          if (v.exists) {
+            const sets = ['updated_at = ?', 'updated_by = ?', 'version = version + 1'];
+            const params: unknown[] = [nowString(), user.username];
+            for (const [key, val] of Object.entries(v.data)) {
+              if (key === 'tag_no') continue;
+              sets.push(`${key} = ?`);
+              params.push(val === undefined ? null : val);
+            }
+            if (Object.keys(v.extra).length) {
+              let merged: Record<string, unknown> = {};
+              try {
+                const raw = existingMap.get(v.tag_no);
+                merged = raw ? JSON.parse(raw) : {};
+              } catch { merged = {}; }
+              Object.assign(merged, v.extra);
+              sets.push('extra_data = ?');
+              params.push(JSON.stringify(merged));
+            }
+            params.push(v.tag_no);
+            return c.env.DB.prepare(`UPDATE equipment SET ${sets.join(', ')} WHERE tag_no = ?`).bind(...params);
           }
-          if (Object.keys(v.extra).length) {
-            const ex = await c.env.DB.prepare(`SELECT extra_data FROM equipment WHERE tag_no = ?`).bind(v.tag_no).first<{ extra_data?: string | null }>();
-            let merged: Record<string, unknown> = {};
-            try { merged = ex?.extra_data ? JSON.parse(ex.extra_data as string) : {}; } catch { merged = {}; }
-            Object.assign(merged, v.extra);
-            sets.push('extra_data = ?');
-            params.push(JSON.stringify(merged));
-          }
-          params.push(v.tag_no);
-          if (sets.length > 3) {
-            await c.env.DB.prepare(`UPDATE equipment SET ${sets.join(', ')} WHERE tag_no = ?`).bind(...params).run();
-          }
-        } else {
           const cols = Object.keys(v.data);
           const extraRaw = Object.keys(v.extra).length ? JSON.stringify(v.extra) : null;
           const allCols = cols.concat('extra_data');
-          await c.env.DB.prepare(
+          return c.env.DB.prepare(
             `INSERT INTO equipment (${allCols.join(', ')}, created_by, updated_by)
              VALUES (${cols.map(() => '?').concat('?').join(', ')}, ?, ?)`
-          )
-            .bind(...cols.map((x) => v.data[x] ?? null), extraRaw, user.username, user.username)
-            .run();
-        }
-        successCount++;
+          ).bind(...cols.map((x) => v.data[x] ?? null), extraRaw, user.username, user.username);
+        });
+        await c.env.DB.batch(stmts);
+        successCount += chunk.length;
       }
       const errorDetail = failRows.length ? JSON.stringify(failRows.map((f) => `${f.error}（位号: ${f.tag_no || '-'}）`)) : null;
       await c.env.DB.prepare(
