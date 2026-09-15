@@ -5,7 +5,7 @@
     <!-- 导入 -->
     <div class="card">
       <h3>设备批量导入</h3>
-      <p class="hint">支持 .xlsx / .csv。表头请使用模板文件中的中文表头；列可缺省，行为：预演只校验不落库，正式导入会跳过不合格行。</p>
+      <p class="hint">支持 .xlsx / .csv。表头请使用模板文件中的中文表头（含全部分类专属列）；列可缺省，每行只需填写该设备类别相关的列。行为：预演只校验不落库，正式导入会跳过不合格行。</p>
       <div class="import-bar">
         <input ref="fileInput" type="file" accept=".xlsx,.xls,.csv" @change="onFile" />
         <select v-model="mode">
@@ -77,9 +77,9 @@
 import { ref, onMounted } from 'vue';
 import * as XLSX from 'xlsx';
 import { api } from '../api/client';
-import { importEquipment, listImportLogs, exportEquipment } from '../api/system';
+import { importEquipment, listImportLogs, exportEquipment, listFieldConfig } from '../api/system';
 
-const HEADER_MAP = {
+const HEADER_MAP_BASE = {
   位号: 'tag_no', 设备名称: 'name', 设备类别: 'category', 所属项目: 'project',
   项目编号: 'project_no', 所属部门: 'department', 安装位置: 'location',
   规格型号: 'model', 生产厂家: 'manufacturer', 供应商: 'supplier',
@@ -87,6 +87,7 @@ const HEADER_MAP = {
   资产编号: 'asset_no', 原值: 'original_value', 净值: 'net_value',
   是否强检: 'is_mandatory', 强检有效期: 'verify_valid_until', 状态: 'status', 备注: 'remark',
 };
+let HEADER_MAP = { ...HEADER_MAP_BASE };
 
 const fileInput = ref(null);
 const mode = ref('insert');
@@ -156,6 +157,9 @@ function downloadTemplate() {
     出厂日期: '2023-05-01', 出厂编号: 'SN20230501', 投用日期: '2023-07-01',
     资产编号: 'ZC-2023-0001', 原值: 8000, 净值: 6500,
     是否强检: '是', 强检有效期: '2027-06-30', 状态: '在用', 备注: '',
+    介质: '水', 密度: '1.0', 粘度: '0.1',
+    功率: '5.5', 最大流量: '50', 正常流量: '40', 最小流量: '10',
+    操作压力: '0.6', 操作温度: '80', 轴承: 'SKF 6205', 减速机: 'R57',
   };
   const ws = XLSX.utils.json_to_sheet([sample], { header: headers });
   const wb = XLSX.utils.book_new();
@@ -233,6 +237,13 @@ onMounted(async () => {
   try {
     const body = await api.get('/api/dicts?type=' + encodeURIComponent('设备类别'));
     if (body.data.items?.length) categories.value = body.data.items.map((x) => x.value);
+  } catch { /* ignore */ }
+  try {
+    const body = await listFieldConfig();
+    const items = body.data || [];
+    for (const f of items) {
+      if (f.field_label && !(f.field_label in HEADER_MAP)) HEADER_MAP[f.field_label] = f.field_key;
+    }
   } catch { /* ignore */ }
 });
 </script>

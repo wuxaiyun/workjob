@@ -10,14 +10,45 @@ const IMPORT_FIELDS = [
   'status', 'remark',
 ] as const;
 
-function validateRow(raw: Record<string, unknown>, index: number): { tag_no: string; data: Record<string, unknown> } | { tag_no: string; error: string } {
-  const tagNo = String(raw.tag_no || '').trim();
+// 中文表头 → 设备主表字段（兼容直传中文表头的 CSV/Excel）
+const BASE_LABEL_MAP: Record<string, string> = {
+  位号: 'tag_no', 设备名称: 'name', 设备类别: 'category', 所属项目: 'project',
+  项目编号: 'project_no', 所属部门: 'department', 安装位置: 'location',
+  规格型号: 'model', 生产厂家: 'manufacturer', 供应商: 'supplier',
+  出厂日期: 'factory_date', 出厂编号: 'factory_no', 投用日期: 'commission_date',
+  资产编号: 'asset_no', 原值: 'original_value', 净值: 'net_value',
+  是否强检: 'is_mandatory', 强检有效期: 'verify_valid_until', 状态: 'status', 备注: 'remark',
+};
+
+type ValidRow = { tag_no: string; data: Record<string, unknown>; extra: Record<string, unknown> };
+
+// 分类专属字段（field_config）：中文标签 → 字段key，写入 equipment.extra_data(JSON)
+function validateRow(
+  raw: Record<string, unknown>,
+  extraMap: Map<string, string>,
+  extraKeys: Set<string>
+): ValidRow | { tag_no: string; error: string } {
+  const tagNo = String(raw.tag_no ?? (raw['位号'] as string | undefined) ?? '').trim();
   if (!tagNo) return { tag_no: tagNo, error: '位号为空' };
   const data: Record<string, unknown> = { tag_no: tagNo };
-  for (const key of IMPORT_FIELDS) {
-    const v = raw[key];
-    if (v === undefined || v === null || (typeof v === 'string' && !v.trim())) continue;
-    data[key] = typeof v === 'string' ? v.trim() : v;
+  const extra: Record<string, unknown> = {};
+  for (const [k, rawV] of Object.entries(raw)) {
+    if (rawV === undefined || rawV === null || (typeof rawV === 'string' && !rawV.trim())) continue;
+    let col = String(k).trim();
+    if (col === '位号') continue;
+    const mapped = BASE_LABEL_MAP[col];
+    if (mapped) col = mapped;
+    if (col === 'tag_no') continue;
+    const val: unknown = typeof rawV === 'string' ? rawV.trim() : rawV;
+    if ((IMPORT_FIELDS as readonly string[]).includes(col)) {
+      data[col] = val;
+      continue;
+    }
+    const fk = extraMap.get(col) || (extraKeys.has(col) ? col : null);
+    if (fk && fk !== 'tag_no') {
+      extra[fk] = val;
+      continue;
+    }
   }
   if (!data.name) return { tag_no: tagNo, error: '设备名称为空' };
   if (!data.category) return { tag_no: tagNo, error: '设备类别为空' };
@@ -28,7 +59,7 @@ function validateRow(raw: Record<string, unknown>, index: number): { tag_no: str
     if (data[key] !== undefined && Number.isNaN(Number(data[key]))) return { tag_no: tagNo, error: `${key} 不是数字` };
     if (data[key] !== undefined) data[key] = Number(data[key]);
   }
-  return { tag_no: tagNo, data };
+  return { tag_no: tagNo, data, extra };
 }
 
 export function importExportRoutes(): Hono<AppEnv> {
@@ -54,21 +85,32 @@ export function importExportRoutes(): Hono<AppEnv> {
     const dryRun = body.dry_run === true;
 
     // 校验 + 识别已存在
+    // 分类专属字段映射：label → field_key（冗余列会静默忽略）
+    const { results: cfgRows } = await c.env.DB.prepare(
+      `SELECT DISTINCT field_label, field_key FROM field_config`
+    ).all<{ field_label: string; field_key: string }>();
+    const extraMap = new Map<string, string>();
+    const extraKeys = new Set<string>();
+    for (const f of cfgRows) {
+      extraKeys.add(f.field_key);
+      if (!extraMap.has(f.field_label)) extraMap.set(f.field_label, f.field_key);
+    }
+
     const tagNos = new Set<string>();
-    const validated: { tag_no: string; data: Record<string, unknown>; exists: boolean; error?: string }[] = [];
+    const validated: { tag_no: string; data: Record<string, unknown>; extra: Record<string, unknown>; exists: boolean; error?: string }[] = [];
     for (let i = 0; i < rows.length; i++) {
       const raw = rows[i];
       if (!raw || typeof raw !== 'object') {
-        validated.push({ tag_no: '', data: {}, exists: false, error: `第 ${i + 1} 行数据不是对象` });
+        validated.push({ tag_no: '', data: {}, extra: {}, exists: false, error: `第 ${i + 1} 行数据不是对象` });
         continue;
       }
-      const r = validateRow(raw as Record<string, unknown>, i);
+      const r = validateRow(raw as Record<string, unknown>, extraMap, extraKeys);
       if ('error' in r) {
-        validated.push({ tag_no: r.tag_no, data: {}, exists: false, error: `第 ${i + 1} 行 ${r.error}` });
+        validated.push({ tag_no: r.tag_no, data: {}, extra: {}, exists: false, error: `第 ${i + 1} 行 ${r.error}` });
         continue;
       }
       if (tagNos.has(r.tag_no)) {
-        validated.push({ tag_no: r.tag_no, data: {}, exists: false, error: `第 ${i + 1} 行位号在文件内重复` });
+        validated.push({ tag_no: r.tag_no, data: {}, extra: {}, exists: false, error: `第 ${i + 1} 行位号在文件内重复` });
         continue;
       }
       tagNos.add(r.tag_no);
@@ -77,10 +119,10 @@ export function importExportRoutes(): Hono<AppEnv> {
       ).bind(r.tag_no).first();
       const exists = !!existing;
       if (mode === 'insert' && exists) {
-        validated.push({ tag_no: r.tag_no, data: {}, exists: true, error: '位号已存在' });
+        validated.push({ tag_no: r.tag_no, data: {}, extra: {}, exists: true, error: '位号已存在' });
         continue;
       }
-      validated.push({ tag_no: r.tag_no, data: r.data, exists, error: undefined });
+      validated.push({ tag_no: r.tag_no, data: r.data, extra: r.extra, exists, error: undefined });
     }
 
     const okRows = validated.filter((v) => !v.error);
@@ -99,18 +141,27 @@ export function importExportRoutes(): Hono<AppEnv> {
             sets.push(`${key} = ?`);
             params.push(val === undefined ? null : val);
           }
+          if (Object.keys(v.extra).length) {
+            const ex = await c.env.DB.prepare(`SELECT extra_data FROM equipment WHERE tag_no = ?`).bind(v.tag_no).first<{ extra_data?: string | null }>();
+            let merged: Record<string, unknown> = {};
+            try { merged = ex?.extra_data ? JSON.parse(ex.extra_data as string) : {}; } catch { merged = {}; }
+            Object.assign(merged, v.extra);
+            sets.push('extra_data = ?');
+            params.push(JSON.stringify(merged));
+          }
           params.push(v.tag_no);
           if (sets.length > 3) {
             await c.env.DB.prepare(`UPDATE equipment SET ${sets.join(', ')} WHERE tag_no = ?`).bind(...params).run();
           }
         } else {
           const cols = Object.keys(v.data);
-          const placeholders = cols.map(() => '?').join(', ');
+          const extraRaw = Object.keys(v.extra).length ? JSON.stringify(v.extra) : null;
+          const allCols = cols.concat('extra_data');
           await c.env.DB.prepare(
-            `INSERT INTO equipment (${cols.map((x) => x).join(', ')}, created_by, updated_by)
-             VALUES (${placeholders}, ?, ?)`
+            `INSERT INTO equipment (${allCols.join(', ')}, created_by, updated_by)
+             VALUES (${cols.map(() => '?').concat('?').join(', ')}, ?, ?)`
           )
-            .bind(...cols.map((x) => v.data[x] ?? null), user.username, user.username)
+            .bind(...cols.map((x) => v.data[x] ?? null), extraRaw, user.username, user.username)
             .run();
         }
         successCount++;
