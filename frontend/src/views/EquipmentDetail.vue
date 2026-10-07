@@ -53,11 +53,20 @@
       <div class="card block">
         <h3>现场照片（{{ equip.photos?.length || 0 }}）</h3>
         <div v-if="equip.photos?.length" class="gallery">
-          <router-link v-for="p in equip.photos" :key="p.id" :to="{ name: 'photo', query: { tag_no: equip.tag_no } }">
-            <img :src="p.thumb_url || p.image_url" class="thumb" :alt="p.photo_type" />
-          </router-link>
+          <img
+            v-for="p in equip.photos"
+            :key="p.id"
+            :src="p.thumb_url || p.image_url"
+            class="thumb"
+            :alt="p.photo_type"
+            @click="preview = p.image_url"
+          />
         </div>
         <p v-else class="muted">暂无照片，点击右上角「照片」上传</p>
+      </div>
+
+      <div v-if="preview" class="lightbox" @click="preview = ''">
+        <img :src="preview" />
       </div>
 
       <!-- 维修历史 -->
@@ -126,6 +135,7 @@ const error = ref('');
 const equip = ref(null);
 const collapsed = ref({});
 const qrDataUrl = ref('');
+const preview = ref('');
 
 const detailFields = DETAIL_FIELDS;
 const extraData = computed(() => equip.value?.extra_data || {});
@@ -274,6 +284,15 @@ onMounted(load);
   .grid {
     grid-template-columns: 1fr;
   }
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .thumb {
+    width: 100%;
+    height: 88px;
+  }
 }
 table {
   width: 100%;
@@ -319,6 +338,21 @@ th {
   object-fit: cover;
   border-radius: 6px;
   border: 1px solid var(--border);
+  cursor: zoom-in;
+}
+.lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  cursor: pointer;
+}
+.lightbox img {
+  max-width: 92vw;
+  max-height: 92vh;
 }
 .print-area {
   display: none;

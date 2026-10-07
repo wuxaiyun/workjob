@@ -214,7 +214,7 @@ export function importExportRoutes(): Hono<AppEnv> {
 
   // ============ 设备导出（返回全量 JSON，前端生成 xlsx/csv） ============
   // GET /api/export/equipment?category=&project=&status=
-  app.get('/export/equipment', async (c) => {
+  app.get('/export/equipment', adminOnly(), async (c) => {
     const category = c.req.query('category') || '';
     const project = c.req.query('project') || '';
     const status = c.req.query('status') || '';
