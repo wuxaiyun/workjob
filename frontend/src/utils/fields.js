@@ -37,7 +37,7 @@ export const LIST_FIELDS = [
 export const DETAIL_FIELDS = COMMON_FIELDS.filter((f) =>
   ['tag_no', 'name', 'category', 'project', 'project_no', 'department', 'location', 'model',
    'manufacturer', 'supplier', 'factory_date', 'factory_no', 'commission_date', 'asset_no',
-   'original_value', 'net_value', 'is_mandatory', 'verify_valid_until', 'status'].includes(f.key)
+   'original_value', 'net_value', 'is_mandatory', 'verify_valid_until', 'status', 'remark'].includes(f.key)
 );
 
 export function fieldMeta(key) {

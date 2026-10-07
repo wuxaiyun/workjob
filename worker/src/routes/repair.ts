@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../types';
-import { ERR, fail, ok, isValidDateString, nowString, nextRepairNo } from '../utils';
+import { ERR, fail, ok, isValidDateString, nowString, nextRepairNo, withSignedPhotoUrls } from '../utils';
 import { authRequired, adminOnly } from '../middleware';
 
 // 维修状态字典值（用于权限判断：终端状态不可再被维修人员修改）
@@ -105,7 +105,7 @@ export function repairRoutes(): Hono<AppEnv> {
       parts: parts.results,
       costs: costData,
       cost_total: costTotal,
-      photos: photos.results,
+      photos: await withSignedPhotoUrls(c.env.FILE_ACCESS_SECRET, photos.results as { id: number; thumbnail_key: string | null }[]),
     });
   });
 

@@ -172,6 +172,26 @@ export async function verifyAccess(secret: string, id: string | number, exp: str
   return sig === expected;
 }
 
+export const FILE_ACCESS_TTL = 15 * 60;
+
+// 为 photo 行附带可直接在 <img> 中使用的签名 URL（详情接口统一使用）
+export async function withSignedPhotoUrls<T extends { id: number; thumbnail_key?: string | null }>(
+  secret: string,
+  rows: T[]
+): Promise<(T & { image_url: string; thumb_url: string | null })[]> {
+  const now = Math.floor(Date.now() / 1000);
+  const exp = now + FILE_ACCESS_TTL;
+  return Promise.all(
+    rows.map(async (p) => ({
+      ...p,
+      image_url: `/api/photo/${p.id}/file?exp=${exp}&k=${await signAccess(secret, p.id, exp)}`,
+      thumb_url: p.thumbnail_key
+        ? `/api/photo/${p.id}/file?t=1&exp=${exp}&k=${await signAccess(secret, `t${p.id}`, exp)}`
+        : null,
+    }))
+  );
+}
+
 // ============ 常见字符串工具 ============
 const pad = (n: number, len = 2) => String(n).padStart(len, '0');
 

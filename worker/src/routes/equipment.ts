@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../types';
-import { ERR, fail, ok, isValidDateString, nowString } from '../utils';
+import { ERR, fail, ok, isValidDateString, nowString, withSignedPhotoUrls } from '../utils';
 import { authRequired, adminOnly } from '../middleware';
 
 // 可编辑字段（tag_no 作为唯一业务索引，不允许通过修改接口变更）
@@ -137,7 +137,7 @@ export function equipmentRoutes(): Hono<AppEnv> {
       ...row,
       extra_data: extraData || {},
       field_config: fieldConfig.results,
-      photos: photos.results,
+      photos: await withSignedPhotoUrls(c.env.FILE_ACCESS_SECRET, photos.results as { id: number; thumbnail_key: string | null }[]),
       repairs: repairs.results,
     });
   });

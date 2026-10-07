@@ -226,6 +226,15 @@ onMounted(load);
 .cell.wide {
   grid-column: span 4;
 }
+.cell.wide .value {
+  white-space: pre-wrap;
+  line-height: 1.6;
+  background: #f9fafb;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  min-height: 20px;
+}
 .cell .label {
   color: var(--text-light);
   font-size: 12px;
@@ -257,6 +266,14 @@ onMounted(load);
 }
 .muted {
   color: var(--text-light);
+}
+@media (max-width: 768px) {
+  .cell.wide {
+    grid-column: auto;
+  }
+  .grid {
+    grid-template-columns: 1fr;
+  }
 }
 table {
   width: 100%;
