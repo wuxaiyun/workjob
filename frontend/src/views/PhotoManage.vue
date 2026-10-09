@@ -34,12 +34,14 @@
           <input v-model="description" placeholder="照片说明" />
         </label>
         <label class="full picker">
-          选择图片
-          <input ref="fileInput" type="file" accept="image/*" @change="onFile" />
-          <span v-if="selected" class="file-hint">已选择：{{ selected.name }}（将自动压缩并生成缩略图）</span>
+          选择图片（可多选）
+          <input ref="fileInput" type="file" accept="image/*" multiple @change="onFile" />
+          <span v-if="selected.length" class="file-hint">已选择 {{ selected.length }} 张（将自动压缩并生成缩略图）</span>
         </label>
         <div class="buttons full">
-          <button type="submit" :disabled="uploading || !selected">上传</button>
+          <button type="submit" :disabled="uploading || !selected.length">
+            {{ uploading ? `上传中 ${progress}…` : '上传' }}
+          </button>
           <button type="button" class="secondary" @click="resetPick">清除选择</button>
         </div>
       </form>
@@ -88,9 +90,9 @@ const photoType = ref('');
 const photoTime = ref(new Date().toISOString().slice(0, 10));
 const photographer = ref(auth.user?.real_name || auth.user?.username || '');
 const description = ref('');
-const selected = ref(null);
-const thumbnail = ref(null);
+const selected = ref([]);
 const uploading = ref(false);
+const progress = ref('');
 const error = ref('');
 const preview = ref('');
 const fileInput = ref(null);
@@ -132,20 +134,12 @@ function clear() {
   resetPick();
 }
 
-async function onFile(e) {
-  const f = e.target.files?.[0];
-  selected.value = f || null;
-  if (!f) return;
-  try {
-    thumbnail.value = await makeThumbnail(f, 480, 0.72);
-  } catch {
-    thumbnail.value = null;
-  }
+function onFile(e) {
+  selected.value = Array.from(e.target.files || []);
 }
 
 function resetPick() {
-  selected.value = null;
-  thumbnail.value = null;
+  selected.value = [];
   if (fileInput.value) fileInput.value.value = '';
 }
 
@@ -155,26 +149,42 @@ async function upload() {
     alert('请先填写设备位号');
     return;
   }
+  if (!selected.value.length) return;
   uploading.value = true;
   error.value = '';
-  try {
-    await uploadFile({
-      kind: 'photo',
-      tagNo: tag,
-      repairNo: repairNo.value.trim(),
-      type: photoType.value,
-      file: selected.value,
-      thumbnail: thumbnail.value,
-      description: description.value,
-      photographer: photographer.value,
-      photoTime: photoTime.value,
-    });
-    resetPick();
-    await load();
-  } catch (e) {
-    error.value = e.error?.message || '上传失败';
-  } finally {
-    uploading.value = false;
+  const files = [...selected.value];
+  const failed = [];
+  for (let i = 0; i < files.length; i++) {
+    progress.value = `${i + 1}/${files.length}`;
+    const f = files[i];
+    let thumbnail = null;
+    try {
+      thumbnail = await makeThumbnail(f, 480, 0.72);
+    } catch {
+      thumbnail = null;
+    }
+    try {
+      await uploadFile({
+        kind: 'photo',
+        tagNo: tag,
+        repairNo: repairNo.value.trim(),
+        type: photoType.value,
+        file: f,
+        thumbnail,
+        description: description.value,
+        photographer: photographer.value,
+        photoTime: photoTime.value,
+      });
+    } catch (e) {
+      failed.push(`${f.name}：${e.error?.message || '上传失败'}`);
+    }
+  }
+  uploading.value = false;
+  progress.value = '';
+  resetPick();
+  await load();
+  if (failed.length) {
+    error.value = `成功 ${files.length - failed.length} 张，失败 ${failed.length} 张：${failed.join('；')}`;
   }
 }
 
