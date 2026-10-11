@@ -46,7 +46,10 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { api } from '../api/client';
+
+const router = useRouter();
 
 const allDicts = ref({}); // { type: [value] } 仅用于列出类型
 const currentItems = ref([]); // [{id, value}] 当前选中类型的条目
@@ -89,6 +92,7 @@ async function saveEdit(item) {
     dirtyIds.value = new Set(dirtyIds.value);
     error.value = '';
     await load();
+    router.push({ name: 'home' });
   } catch (e) {
     error.value = e.error?.message || '保存失败';
     await load();

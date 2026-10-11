@@ -88,12 +88,14 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { api } from '../api/client';
 import {
   listFieldConfig, createFieldConfig, updateFieldConfig, removeFieldConfig,
 } from '../api/system';
 
 const category = ref('');
+const router = useRouter();
 const categories = ref([]);
 const items = ref([]);
 const error = ref('');
@@ -158,6 +160,7 @@ async function save() {
     }
     showForm.value = false;
     await load();
+    router.push({ name: 'home' });
   } catch (e) {
     alert(e.error?.message || '保存失败');
   }

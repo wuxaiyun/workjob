@@ -168,7 +168,7 @@ async function submit() {
     } else {
       await createEquipment(payload);
     }
-    router.push({ name: 'equipment-detail', params: { tagNo: form.value.tag_no } });
+    router.push({ name: 'home' });
   } catch (e) {
     error.value = e.error?.message || '保存失败';
   } finally {

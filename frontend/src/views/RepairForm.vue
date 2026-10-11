@@ -149,7 +149,7 @@ async function submit() {
     } else {
       await createRepair(payload);
     }
-    router.push({ name: 'repair-list' });
+    router.push({ name: 'home' });
   } catch (e) {
     error.value = e.error?.message || '保存失败';
   } finally {

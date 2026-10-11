@@ -102,6 +102,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { api } from '../api/client';
 import {
   listCalibrations, createCalibration, updateCalibration, removeCalibration, systemAlerts,
@@ -109,6 +110,7 @@ import {
 import { useAuthStore } from '../store/auth';
 
 const auth = useAuthStore();
+const router = useRouter();
 const filters = ref({ tag_no: '' });
 const items = ref([]);
 const alerts = ref({ calibrations: [], mandatory: [] });
@@ -165,6 +167,7 @@ async function save() {
     showForm.value = false;
     form.value = emptyForm();
     await load();
+    router.push({ name: 'home' });
   } catch (e) {
     alert(e.error?.message || '保存失败');
   }

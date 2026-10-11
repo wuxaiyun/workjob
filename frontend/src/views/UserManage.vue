@@ -71,10 +71,12 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { listUsers, createUser, updateUser, resetUserPassword } from '../api/users';
 import { useAuthStore } from '../store/auth';
 
 const auth = useAuthStore();
+const router = useRouter();
 const users = ref([]);
 const busy = ref(false);
 const error = ref('');
@@ -134,6 +136,7 @@ async function saveEdit(u) {
     editingId.value = null;
     error.value = '';
     await load();
+    router.push({ name: 'home' });
   } catch (e) {
     error.value = e.error?.message || '保存失败';
   }
