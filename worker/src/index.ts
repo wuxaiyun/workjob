@@ -13,6 +13,7 @@ import { importExportRoutes } from './routes/importExport';
 import { backupRoutes } from './routes/backup';
 import { systemRoutes } from './routes/system';
 import { userRoutes } from './routes/users';
+import { materialRoutes } from './routes/material';
 
 const app = new Hono<AppEnv>();
 
@@ -28,6 +29,7 @@ app.route('/api', importExportRoutes());
 app.route('/api', backupRoutes());
 app.route('/api', systemRoutes());
 app.route('/api', userRoutes());
+app.route('/api', materialRoutes());
 
 // API 404
 app.notFound((c) => {

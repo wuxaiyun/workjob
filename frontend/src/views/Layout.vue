@@ -48,6 +48,7 @@ const menus = [
   { label: '设备照片', to: 'photo', disabled: false },
   { label: '设备附件', to: 'attachment', disabled: false },
   { label: '检定管理', to: 'calibration', disabled: false },
+  { label: '材料管理', to: 'material', disabled: false },
   { label: '导入导出', to: 'importexport', adminOnly: true },
   { label: '设备参数设置', to: 'field-config', adminOnly: true },
   { label: '基础选项设置', to: 'dicts', adminOnly: true },
