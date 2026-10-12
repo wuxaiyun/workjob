@@ -20,6 +20,7 @@ const routes = [
       { path: 'attachments', name: 'attachment', component: () => import('../views/AttachmentManage.vue') },
       { path: 'calibration', name: 'calibration', component: () => import('../views/CalibrationManage.vue') },
       { path: 'materials', name: 'material', component: () => import('../views/MaterialManage.vue') },
+      { path: 'documents', name: 'document', component: () => import('../views/DocumentManage.vue') },
       { path: 'import-export', name: 'importexport', component: () => import('../views/ImportExport.vue'), meta: { adminOnly: true } },
       { path: 'field-config', name: 'field-config', component: () => import('../views/FieldConfig.vue'), meta: { adminOnly: true } },
       { path: 'users', name: 'users', component: () => import('../views/UserManage.vue'), meta: { adminOnly: true } },
