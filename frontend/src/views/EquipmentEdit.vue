@@ -19,7 +19,7 @@
           <datalist id="quick-cat">
             <option v-for="v in dicts['设备类别'] || []" :key="v" :value="v">{{ v }}</option>
           </datalist>
-          <label>所属项目 <span class="req">*</span></label>
+          <label>位置 <span class="req">*</span></label>
           <input v-model="form.project" placeholder="如 二期项目" />
         </template>
 
