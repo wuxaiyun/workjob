@@ -20,7 +20,7 @@
             <option v-for="v in dicts['设备类别'] || []" :key="v" :value="v">{{ v }}</option>
           </datalist>
           <label>位置 <span class="req">*</span></label>
-          <input v-model="form.project" placeholder="如 二期项目" />
+          <input v-model="form.location" placeholder="如 A区3号线" />
         </template>
 
         <!-- 完整模式 -->
@@ -153,7 +153,7 @@ async function submit() {
   if (!form.value.tag_no.trim()) { error.value = '位号不能为空'; return; }
   if (!form.value.name.trim()) { error.value = '设备名称不能为空'; return; }
   if (!form.value.category) { error.value = '请选择设备类别'; return; }
-  if (mode.value === 'quick' && !form.value.project.trim()) { error.value = '快速新增需填写项目'; return; }
+  if (mode.value === 'quick' && !form.value.location.trim()) { error.value = '快速新增需填写位置'; return; }
 
   saving.value = true;
   try {

@@ -157,12 +157,13 @@ export function equipmentRoutes(): Hono<AppEnv> {
     const name = String(body.name || '').trim();
     const category = String(body.category || '').trim();
     const project = String(body.project || '').trim();
+    const location = String(body.location || '').trim();
 
     if (!tagNo) return fail(c, ERR.VALIDATION_ERROR, '位号不能为空');
     if (!name) return fail(c, ERR.VALIDATION_ERROR, '设备名称不能为空');
     if (!category) return fail(c, ERR.VALIDATION_ERROR, '设备类别不能为空');
-    if (mode === 'quick' && !project) {
-      return fail(c, ERR.VALIDATION_ERROR, '快速新增需要填写项目');
+    if (mode === 'quick' && !location) {
+      return fail(c, ERR.VALIDATION_ERROR, '快速新增需要填写位置');
     }
 
     for (const key of ['factory_date', 'commission_date', 'verify_valid_until'] as const) {
