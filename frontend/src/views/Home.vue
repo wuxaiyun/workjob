@@ -24,7 +24,7 @@
       <div class="card">
         <h3>统计概览</h3>
         <div class="stats">
-          <div class="stat"><b>{{ admin ? stats.counts?.equipment ?? '-' : equipTotal ?? '-' }}</b><span>设备总数</span></div>
+          <router-link :to="{ name: 'equipment' }" class="stat stat-link"><b>{{ admin ? stats.counts?.equipment ?? '-' : equipTotal ?? '-' }}</b><span>设备总数</span></router-link>
           <div class="stat"><b>{{ admin ? stats.counts?.repair ?? '-' : repairTotal ?? '-' }}</b><span>维修记录</span></div>
           <div class="stat"><b>{{ admin ? stats.counts?.staffed ?? '-' : '-' }}</b><span>维修中</span></div>
           <div class="stat"><b>{{ admin ? stats.counts?.calibration ?? '-' : '-' }}</b><span>检定记录</span></div>
@@ -171,6 +171,8 @@ onMounted(async () => {
 .card h3 { margin-bottom: 12px; }
 .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .stat { background: #f9fafb; border-radius: 8px; padding: 12px; text-align: center; }
+.stat-link { display: block; text-decoration: none; color: inherit; cursor: pointer; }
+.stat-link:hover { background: #eef2ff; }
 .stat b { display: block; font-size: 22px; color: var(--primary); }
 .stat span { font-size: 12px; color: var(--text-light); }
 .alert-row {
