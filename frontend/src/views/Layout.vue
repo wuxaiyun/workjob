@@ -19,6 +19,7 @@
         </div>
         <div class="user-box">
           <span class="user-name">{{ auth.user?.real_name || auth.user?.username }}</span>
+          <router-link :to="{ name: 'home' }"><button class="secondary">首页</button></router-link>
           <router-link :to="{ name: 'change-password' }"><button class="secondary">修改密码</button></router-link>
           <button class="secondary" @click="logout">退出</button>
         </div>
@@ -42,7 +43,6 @@ const sidebarOpen = ref(false);
 watch(() => route.fullPath, () => { sidebarOpen.value = false; });
 
 const menus = [
-  { label: '首页', to: 'home', disabled: false },
   { label: '设备管理', to: 'equipment', disabled: false },
   { label: '维修管理', to: 'repair-list', disabled: false },
   { label: '设备照片', to: 'photo', disabled: false },
