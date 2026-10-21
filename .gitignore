@@ -7,7 +7,8 @@ worker/.dev.vars
 .DS_Store
 
 # 业务数据 / 迁移资料（勿提交到仓库）
-旧资料/
+旧资料
+local-export/
 *.xls
 *.xlsx
 *.csv
