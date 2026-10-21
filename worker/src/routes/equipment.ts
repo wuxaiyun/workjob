@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../types';
-import { ERR, fail, ok, isValidDateString, nowString, withSignedPhotoUrls, inStatusList, EQUIPMENT_STATUS } from '../utils';
+import { ERR, fail, ok, isValidDateString, nowString, withSignedPhotoUrls, inStatusList, EQUIPMENT_STATUS, escapeLike } from '../utils';
 import { authRequired, adminOnly } from '../middleware';
 
 // 可编辑字段（tag_no 作为唯一业务索引，不允许通过修改接口变更）
@@ -27,10 +27,6 @@ function pickEditable(body: Record<string, unknown>): Record<string, string | nu
     }
   }
   return out;
-}
-
-function escapeLike(s: string): string {
-  return s.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
 }
 
 export function equipmentRoutes(): Hono<AppEnv> {

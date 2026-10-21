@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../types';
-import { ERR, fail, ok, isValidDateString, nowString, nextRepairNo, withSignedPhotoUrls, inStatusList, REPAIR_STATUS } from '../utils';
+import { ERR, fail, ok, isValidDateString, nowString, nextRepairNo, withSignedPhotoUrls, inStatusList, REPAIR_STATUS, escapeLike } from '../utils';
 import { authRequired, adminOnly } from '../middleware';
 
 // 维修状态字典值（用于权限判断：终端状态不可再被维修人员修改）
@@ -42,8 +42,9 @@ export function repairRoutes(): Hono<AppEnv> {
     if (status) { where.push('status = ?'); bind.push(status); }
     if (repairNo) { where.push('repair_no = ?'); bind.push(repairNo); }
     if (q) {
-      where.push('(repair_no LIKE ? OR tag_no LIKE ? OR fault_desc LIKE ?)');
-      bind.push(`%${q}%`, `%${q}%`, `%${q}%`);
+      const like = `%${escapeLike(q)}%`;
+      where.push(`(repair_no LIKE ? ESCAPE '\\' OR tag_no LIKE ? ESCAPE '\\' OR fault_desc LIKE ? ESCAPE '\\')`);
+      bind.push(like, like, like);
     }
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
 

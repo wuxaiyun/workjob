@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../types';
-import { ERR, fail, ok, nowString, signAccess, verifyAccess, FILE_ACCESS_TTL } from '../utils';
+import { ERR, fail, ok, nowString, signAccess, verifyAccess, FILE_ACCESS_TTL, escapeLike } from '../utils';
 import { authRequired, adminOnly } from '../middleware';
 
 const MAX_DOC_SIZE = 50 * 1024 * 1024; // 50MB
@@ -110,8 +110,9 @@ export function documentRoutes(): Hono<AppEnv> {
     const where: string[] = [];
     const bind: unknown[] = [];
     if (q) {
-      where.push('(title LIKE ? OR file_name LIKE ?)');
-      bind.push(`%${q}%`, `%${q}%`);
+      const like = `%${escapeLike(q)}%`;
+      where.push(`(title LIKE ? ESCAPE '\\' OR file_name LIKE ? ESCAPE '\\')`);
+      bind.push(like, like);
     }
     if (category) {
       where.push('category = ?');

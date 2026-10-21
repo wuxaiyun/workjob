@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../types';
-import { ERR, fail, ok, nowString } from '../utils';
+import { ERR, fail, ok, nowString, escapeLike } from '../utils';
 import { authRequired, adminOnly } from '../middleware';
 
 // 个人工具：与设备位号并列的固定使用对象
@@ -67,8 +67,9 @@ export function materialRoutes(): Hono<AppEnv> {
     const where: string[] = [];
     const bind: unknown[] = [];
     if (q) {
-      where.push('(name LIKE ? OR model LIKE ?)');
-      bind.push(`%${q}%`, `%${q}%`);
+      const like = `%${escapeLike(q)}%`;
+      where.push(`(name LIKE ? ESCAPE '\\' OR model LIKE ? ESCAPE '\\')`);
+      bind.push(like, like);
     }
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
 

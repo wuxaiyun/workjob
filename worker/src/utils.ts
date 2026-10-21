@@ -38,6 +38,11 @@ export function inStatusList(v: string, list: readonly string[]): boolean {
   return (list as readonly string[]).includes(v);
 }
 
+// LIKE 通配符转义（配合 ESCAPE '\\' 使用）
+export function escapeLike(s: string): string {
+  return s.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+}
+
 // ============ 基础编解码 ============
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
