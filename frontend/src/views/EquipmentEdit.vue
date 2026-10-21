@@ -99,6 +99,7 @@ const fieldConfig = ref([]);
 const form = ref({});
 const extraData = ref({});
 let version = 1;
+let restoring = false;
 
 const commonFields = computed(() => {
   if (mode.value === 'full') return COMMON_FIELDS;
@@ -128,6 +129,7 @@ async function loadCategoryFields(category) {
 watch(
   () => form.value.category,
   (nv, ov) => {
+    if (restoring) return;
     if (mode.value === 'full' && nv && nv !== ov) {
       extraData.value = {};
       loadCategoryFields(nv);
@@ -186,6 +188,7 @@ onMounted(async () => {
     try {
       const body = await getEquipment(tagNo.value);
       const data = body.data;
+      restoring = true;
       form.value = initForm(data);
       version = data.version || 1;
       if (data.extra_data) extraData.value = { ...data.extra_data };
@@ -194,6 +197,7 @@ onMounted(async () => {
       } else if (data.category) {
         await loadCategoryFields(data.category);
       }
+      restoring = false;
     } catch (e) {
       error.value = e.error?.message || '加载失败';
     } finally {
