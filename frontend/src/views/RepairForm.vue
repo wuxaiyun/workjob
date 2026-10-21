@@ -68,6 +68,7 @@
 </template>
 
 <script setup>
+import { localToday } from '../utils/datetime';
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '../api/client';
@@ -87,7 +88,7 @@ const statusList = ['待处理', '处理中', '待验收', '已完成', '已关�
 
 const form = ref({
   tag_no: '',
-  report_date: new Date().toISOString().slice(0, 10),
+  report_date: localToday(),
   repair_type: '',
   status: '待处理',
   worker: auth.user?.real_name || auth.user?.username || '',

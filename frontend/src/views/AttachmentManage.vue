@@ -50,7 +50,7 @@
             <td>{{ a.file_type }}</td>
             <td>{{ a.description || '-' }}</td>
             <td>{{ a.uploader }}</td>
-            <td>{{ a.created_at }}</td>
+            <td>{{ fmtTime(a.created_at) }}</td>
             <td>{{ humanSize(a.size) }}</td>
             <td class="ops">
               <a :href="a.download_url" download>下载</a>
@@ -65,6 +65,7 @@
 </template>
 
 <script setup>
+import { fmtTime } from '../utils/datetime';
 import { ref, onMounted } from 'vue';
 import { api } from '../api/client';
 import { listAttachments, removeAttachment, uploadFile } from '../api/files';

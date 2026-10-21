@@ -73,6 +73,7 @@
 </template>
 
 <script setup>
+import { localToday } from '../utils/datetime';
 import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { api } from '../api/client';
@@ -87,7 +88,7 @@ const repairNo = ref(route.query.repair_no || '');
 const photos = ref([]);
 const photoTypes = ref([]);
 const photoType = ref('');
-const photoTime = ref(new Date().toISOString().slice(0, 10));
+const photoTime = ref(localToday());
 const photographer = ref(auth.user?.real_name || auth.user?.username || '');
 const description = ref('');
 const selected = ref([]);

@@ -48,7 +48,7 @@
             <td>
               <span class="badge" :class="u.status === 'active' ? 'ok' : 'muted'">{{ u.status === 'active' ? '启用' : '停用' }}</span>
             </td>
-            <td>{{ u.created_at }}</td>
+            <td>{{ fmtTime(u.created_at) }}</td>
             <td class="ops">
               <template v-if="editingId === u.id">
                 <a href="javascript:;" @click="saveEdit(u)">保存</a>
@@ -70,6 +70,7 @@
 </template>
 
 <script setup>
+import { fmtTime } from '../utils/datetime';
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { listUsers, createUser, updateUser, resetUserPassword } from '../api/users';

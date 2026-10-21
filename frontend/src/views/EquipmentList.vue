@@ -49,7 +49,7 @@
             <td>
               <span class="badge" :class="statusClass(it.status)">{{ it.status }}</span>
             </td>
-            <td>{{ it.updated_at || it.created_at }}</td>
+            <td>{{ fmtTime(it.updated_at || it.created_at) }}</td>
             <td class="ops">
               <router-link :to="{ name: 'equipment-detail', params: { tagNo: it.tag_no } }">详情</router-link>
               <router-link :to="{ name: 'equipment-edit', params: { tagNo: it.tag_no } }">编辑</router-link>
@@ -72,6 +72,7 @@
 </template>
 
 <script setup>
+import { fmtTime } from '../utils/datetime';
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../api/client';

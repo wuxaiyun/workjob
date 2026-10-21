@@ -64,7 +64,7 @@
             <td>{{ l.file_name }}</td><td>{{ l.total_rows }}</td>
             <td class="ok-text">{{ l.success_rows }}</td>
             <td :class="{ 'warn-text': l.fail_rows > 0 }">{{ l.fail_rows }}</td>
-            <td>{{ l.operator }}</td><td>{{ l.created_at }}</td>
+            <td>{{ l.operator }}</td><td>{{ fmtTime(l.created_at) }}</td>
           </tr>
         </tbody>
       </table>
@@ -74,6 +74,7 @@
 </template>
 
 <script setup>
+import { fmtTime, localToday } from '../utils/datetime';
 import { ref, onMounted } from 'vue';
 import * as XLSX from 'xlsx';
 import { api } from '../api/client';
@@ -198,7 +199,7 @@ async function exportExcel() {
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '设备台账');
-    XLSX.writeFile(wb, `设备台账_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.writeFile(wb, `设备台账_${localToday()}.xlsx`);
   } catch (e) {
     error.value = e.error?.message || '导出失败';
   } finally {
@@ -217,7 +218,7 @@ async function exportCsv() {
     }
     const ws = XLSX.utils.json_to_sheet(data);
     const csv = XLSX.utils.sheet_to_csv(ws);
-    downloadBlob('\ufeff' + csv, `设备台账_${new Date().toISOString().slice(0, 10)}.csv`, 'text/csv;charset=utf-8');
+    downloadBlob('\ufeff' + csv, `设备台账_${localToday()}.csv`, 'text/csv;charset=utf-8');
   } catch (e) {
     error.value = e.error?.message || '导出失败';
   } finally {

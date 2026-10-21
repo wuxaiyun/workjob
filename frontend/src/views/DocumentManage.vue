@@ -62,7 +62,7 @@
               <td>{{ humanSize(d.size) }}</td>
               <td>{{ d.category || '-' }}</td>
               <td>{{ d.uploader || '-' }}</td>
-              <td>{{ d.created_at }}</td>
+              <td>{{ fmtTime(d.created_at) }}</td>
               <td>{{ d.remark || '-' }}</td>
               <td class="ops">
                 <a :href="d.download_url" download>下载</a>
@@ -78,6 +78,7 @@
 </template>
 
 <script setup>
+import { fmtTime } from '../utils/datetime';
 import { ref, onMounted } from 'vue';
 import { listDocuments, documentCategories, uploadDocument, removeDocument } from '../api/document';
 import { useAuthStore } from '../store/auth';

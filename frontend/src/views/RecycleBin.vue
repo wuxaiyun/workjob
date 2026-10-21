@@ -18,7 +18,7 @@
             <tr v-for="it in items" :key="it.id">
               <td>{{ it.tag_no }}</td><td>{{ it.name }}</td><td>{{ it.category }}</td>
               <td><span class="badge" :class="it.status === '在用' ? 'ok' : 'muted'">{{ it.status }}</span></td>
-              <td>{{ it.deleted_at || it.updated_at || '-' }}</td>
+              <td>{{ fmtTime(it.deleted_at || it.updated_at || '') }}</td>
               <td class="ops">
                 <a href="javascript:;" @click="restore('equipment', it.id)">恢复为在用</a>
               </td>
@@ -49,6 +49,7 @@
 </template>
 
 <script setup>
+import { fmtTime } from '../utils/datetime';
 import { ref, onMounted } from 'vue';
 import { listRecycle, restoreRecycle } from '../api/system';
 

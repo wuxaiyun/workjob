@@ -54,7 +54,7 @@
           <tr>
             <th>维修人员</th><td>{{ d.worker }}</td>
             <th>登记人</th><td>{{ d.created_by }}</td>
-            <th>创建时间</th><td>{{ d.created_at }}</td>
+            <th>创建时间</th><td>{{ fmtTime(d.created_at) }}</td>
           </tr>
           <tr>
             <th>费用合计</th><td>{{ auth.isAdmin ? '￥' + (d.cost_total ?? 0) : '（仅管理员可见）' }}</td>
@@ -174,6 +174,7 @@
 </template>
 
 <script setup>
+import { fmtTime } from '../utils/datetime';
 import { ref, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { getRepair, setRepairStatus, removeRepair, createPart, removePart, createCost, removeCost } from '../api/repair';

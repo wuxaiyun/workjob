@@ -23,7 +23,7 @@
             <td>{{ b.file_name }}</td>
             <td>{{ b.row_counts }}</td>
             <td>{{ b.operator }}</td>
-            <td>{{ b.created_at }}</td>
+            <td>{{ fmtTime(b.created_at) }}</td>
             <td>
               <a :href="b.download_url" download>下载</a>
             </td>
@@ -36,6 +36,7 @@
 </template>
 
 <script setup>
+import { fmtTime } from '../utils/datetime';
 import { ref, onMounted } from 'vue';
 import { listBackups, createBackup } from '../api/system';
 
