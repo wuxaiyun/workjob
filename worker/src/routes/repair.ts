@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../types';
-import { ERR, fail, ok, isValidDateString, nowString, nextRepairNo, withSignedPhotoUrls } from '../utils';
+import { ERR, fail, ok, isValidDateString, nowString, nextRepairNo, withSignedPhotoUrls, inStatusList, REPAIR_STATUS } from '../utils';
 import { authRequired, adminOnly } from '../middleware';
 
 // 维修状态字典值（用于权限判断：终端状态不可再被维修人员修改）
@@ -138,6 +138,9 @@ export function repairRoutes(): Hono<AppEnv> {
     if (!equip) return fail(c, ERR.EQUIPMENT_NOT_FOUND, '设备不存在', 404);
 
     const status = String(body.status || '待处理').trim();
+    if (!inStatusList(status, REPAIR_STATUS)) {
+      return fail(c, ERR.VALIDATION_ERROR, '状态只能是 待处理/处理中/待验收/已完成/已关闭');
+    }
     const worker = String(body.worker || user.real_name || user.username).trim();
 
     // 生成单号 + 插入（repair_no 有 UNIQUE 约束，并发冲突时重试生成新单号）
@@ -222,6 +225,9 @@ export function repairRoutes(): Hono<AppEnv> {
     if (upd.repair_date !== undefined && upd.repair_date && !isValidDateString(upd.repair_date)) {
       return fail(c, ERR.INVALID_DATE, '维修日期不合法');
     }
+    if (upd.status !== undefined && !inStatusList(upd.status, REPAIR_STATUS)) {
+      return fail(c, ERR.VALIDATION_ERROR, '状态只能是 待处理/处理中/待验收/已完成/已关闭');
+    }
 
     const sets = EDITABLE.filter((k) => upd[k] !== undefined).map((k) => `${k} = ?`);
     const params: unknown[] = EDITABLE.filter((k) => upd[k] !== undefined).map((k) => upd[k]);
@@ -256,6 +262,9 @@ export function repairRoutes(): Hono<AppEnv> {
     }
     const status = String(body.status || '').trim();
     if (!status) return fail(c, ERR.VALIDATION_ERROR, '缺少 status');
+    if (!inStatusList(status, REPAIR_STATUS)) {
+      return fail(c, ERR.VALIDATION_ERROR, '状态只能是 待处理/处理中/待验收/已完成/已关闭');
+    }
 
     const row = await c.env.DB.prepare(`SELECT * FROM repair WHERE id = ? AND deleted_at IS NULL`)
       .bind(id)

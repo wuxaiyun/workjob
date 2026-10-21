@@ -31,6 +31,13 @@ export const ERR = {
   DICT_VALUE_IN_USE: 'DICT_VALUE_IN_USE',
 } as const;
 
+// ============ 状态枚举 ============
+export const EQUIPMENT_STATUS = ['在用', '停用', '报废'] as const;
+export const REPAIR_STATUS = ['待处理', '处理中', '待验收', '已完成', '已关闭'] as const;
+export function inStatusList(v: string, list: readonly string[]): boolean {
+  return (list as readonly string[]).includes(v);
+}
+
 // ============ 基础编解码 ============
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();

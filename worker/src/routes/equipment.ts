@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../types';
-import { ERR, fail, ok, isValidDateString, nowString, withSignedPhotoUrls } from '../utils';
+import { ERR, fail, ok, isValidDateString, nowString, withSignedPhotoUrls, inStatusList, EQUIPMENT_STATUS } from '../utils';
 import { authRequired, adminOnly } from '../middleware';
 
 // 可编辑字段（tag_no 作为唯一业务索引，不允许通过修改接口变更）
@@ -178,6 +178,10 @@ export function equipmentRoutes(): Hono<AppEnv> {
         return fail(c, ERR.INVALID_NUMBER, `${key} 必须是数字`);
       }
     }
+    const statusInput = body.status === undefined || body.status === null ? '' : String(body.status).trim();
+    if (statusInput && !inStatusList(statusInput, EQUIPMENT_STATUS)) {
+      return fail(c, ERR.VALIDATION_ERROR, '状态只能是 在用/停用/报废');
+    }
 
     const existing = await c.env.DB.prepare(`SELECT id FROM equipment WHERE tag_no = ?`)
       .bind(tagNo)
@@ -281,6 +285,9 @@ export function equipmentRoutes(): Hono<AppEnv> {
     }
 
     const editable = pickEditable(body);
+    if (editable.status !== undefined && !inStatusList(String(editable.status), EQUIPMENT_STATUS)) {
+      return fail(c, ERR.VALIDATION_ERROR, '状态只能是 在用/停用/报废');
+    }
     for (const key of ['original_value', 'net_value'] as const) {
       if (editable[key] === '') editable[key] = null;
       else if (editable[key] !== undefined) editable[key] = Number(editable[key]);
@@ -332,6 +339,9 @@ export function equipmentRoutes(): Hono<AppEnv> {
     }
     const status = String(body.status || '').trim();
     if (!status) return fail(c, ERR.VALIDATION_ERROR, '缺少 status');
+    if (!inStatusList(status, EQUIPMENT_STATUS)) {
+      return fail(c, ERR.VALIDATION_ERROR, '状态只能是 在用/停用/报废');
+    }
 
     const row = await c.env.DB.prepare(
       `SELECT id, status FROM equipment WHERE tag_no = ? AND deleted_at IS NULL`
