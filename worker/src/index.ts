@@ -18,6 +18,14 @@ import { documentRoutes } from './routes/document';
 
 const app = new Hono<AppEnv>();
 
+// 安全响应头（静态资源由 _headers 文件覆盖，这里补 API/兜底响应）
+app.use('*', async (c, next) => {
+  await next();
+  c.header('X-Content-Type-Options', 'nosniff');
+  c.header('X-Frame-Options', 'DENY');
+  c.header('Referrer-Policy', 'same-origin');
+});
+
 app.route('/api', authRoutes());
 app.route('/api', dictRoutes());
 app.route('/api/equipment', equipmentRoutes());
