@@ -14,9 +14,8 @@
     "deploy": "node scripts/deploy.cjs"
   },
   "allowScripts": {
-    "esbuild@0.21.5": true,
-    "esbuild@0.28.1": true,
-    "workerd@1.20260911.1": true,
-    "vue-demi@0.14.10": true
+    "vue-demi@0.14.10": true,
+    "esbuild@0.28.2": true,
+    "workerd@1.20261019.1": true
   }
 }
