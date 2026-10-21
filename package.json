@@ -10,7 +10,8 @@
     "dev:worker": "npm run dev -w worker",
     "dev:web": "npm run dev -w frontend",
     "build:web": "npm run build -w frontend",
-    "build:deploy": "npm run build -w frontend && node scripts/sync-static.cjs"
+    "build:deploy": "npm run build -w frontend && node scripts/sync-static.cjs",
+    "deploy": "node scripts/deploy.cjs"
   },
   "allowScripts": {
     "esbuild@0.21.5": true,
