@@ -177,6 +177,9 @@ export function equipmentRoutes(): Hono<AppEnv> {
       if (v !== undefined && v !== null && v !== '' && Number.isNaN(Number(v))) {
         return fail(c, ERR.INVALID_NUMBER, `${key} 必须是数字`);
       }
+      if (v !== undefined && v !== null && v !== '' && Number(v) < 0) {
+        return fail(c, ERR.INVALID_NUMBER, '原值/净值不能为负数');
+      }
     }
     const statusInput = body.status === undefined || body.status === null ? '' : String(body.status).trim();
     if (statusInput && !inStatusList(statusInput, EQUIPMENT_STATUS)) {
@@ -281,6 +284,9 @@ export function equipmentRoutes(): Hono<AppEnv> {
       const v = body[key];
       if (v !== undefined && v !== null && v !== '' && Number.isNaN(Number(v))) {
         return fail(c, ERR.INVALID_NUMBER, `${key} 必须是数字`);
+      }
+      if (v !== undefined && v !== null && v !== '' && Number(v) < 0) {
+        return fail(c, ERR.INVALID_NUMBER, '原值/净值不能为负数');
       }
     }
 

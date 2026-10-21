@@ -88,6 +88,13 @@ export function calibrationRoutes(): Hono<AppEnv> {
     const dueDate = String(body.due_date || '').trim();
     if (!tagNo) return fail(c, ERR.VALIDATION_ERROR, '位号不能为空');
     if (!isValidDateString(dueDate)) return fail(c, ERR.INVALID_DATE, '到期日不合法');
+    if (body.done_date && !isValidDateString(String(body.done_date))) {
+      return fail(c, ERR.INVALID_DATE, '检定日期不合法');
+    }
+    const result = body.result ? String(body.result).trim() : '待检定';
+    if (!['合格', '不合格', '待检定', '超期未检'].includes(result)) {
+      return fail(c, ERR.VALIDATION_ERROR, '结果只能是 合格/不合格/待检定/超期未检');
+    }
 
     const equip = await c.env.DB.prepare(`SELECT id FROM equipment WHERE tag_no = ? AND deleted_at IS NULL`)
       .bind(tagNo)
@@ -104,7 +111,7 @@ export function calibrationRoutes(): Hono<AppEnv> {
         body.cert_no ? String(body.cert_no).trim() : null,
         body.done_date ? String(body.done_date).trim() : null,
         dueDate,
-        body.result ? String(body.result).trim() : '待检定',
+        result,
         body.remark ? String(body.remark).trim() : null,
         user.username
       )
@@ -123,6 +130,13 @@ export function calibrationRoutes(): Hono<AppEnv> {
     }
     if (body.due_date && !isValidDateString(String(body.due_date))) {
       return fail(c, ERR.INVALID_DATE, '到期日不合法');
+    }
+    if (body.done_date && !isValidDateString(String(body.done_date))) {
+      return fail(c, ERR.INVALID_DATE, '检定日期不合法');
+    }
+    if (body.result !== undefined && body.result !== '' &&
+        !['合格', '不合格', '待检定', '超期未检'].includes(String(body.result).trim())) {
+      return fail(c, ERR.VALIDATION_ERROR, '结果只能是 合格/不合格/待检定/超期未检');
     }
     const fields: string[] = [];
     const params: unknown[] = [];

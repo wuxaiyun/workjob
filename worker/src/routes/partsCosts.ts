@@ -48,7 +48,11 @@ export function partsCostsRoutes(): Hono<AppEnv> {
     const qty = body.part_qty === undefined || body.part_qty === '' ? 1 : Number(body.part_qty);
     const cost = body.cost === undefined || body.cost === '' ? null : Number(body.cost);
     if (Number.isNaN(qty)) return fail(c, ERR.INVALID_NUMBER, '数量必须是数字');
-    if (cost !== null && Number.isNaN(cost)) return fail(c, ERR.INVALID_NUMBER, '费用必须是数字');
+    if (qty <= 0) return fail(c, ERR.INVALID_NUMBER, '数量必须大于 0');
+    if (cost !== null) {
+      if (Number.isNaN(cost)) return fail(c, ERR.INVALID_NUMBER, '费用必须是数字');
+      if (cost < 0) return fail(c, ERR.INVALID_NUMBER, '费用不能为负数');
+    }
 
     await c.env.DB.prepare(
       `INSERT INTO part_replace (repair_no, tag_no, part_name, part_model, part_qty, part_unit, replace_date, cost, remark, created_by)
@@ -75,20 +79,31 @@ export function partsCostsRoutes(): Hono<AppEnv> {
     }
     const fields: string[] = [];
     const params: unknown[] = [];
-    for (const key of ['part_name', 'part_model', 'part_unit', 'remark', 'replace_date'] as const) {
+    for (const key of ['part_name', 'part_model', 'part_unit', 'remark'] as const) {
       if (body[key] !== undefined) {
         fields.push(`${key} = ?`);
         params.push(String(body[key]).trim());
       }
     }
+    if (body.replace_date !== undefined) {
+      if (body.replace_date && !isValidDateString(String(body.replace_date))) {
+        return fail(c, ERR.INVALID_DATE, '更换日期不合法');
+      }
+      fields.push('replace_date = ?');
+      params.push(body.replace_date ? String(body.replace_date).trim() : null);
+    }
     if (body.part_qty !== undefined) {
       const q = Number(body.part_qty);
       if (Number.isNaN(q)) return fail(c, ERR.INVALID_NUMBER, '数量必须是数字');
+      if (q <= 0) return fail(c, ERR.INVALID_NUMBER, '数量必须大于 0');
       fields.push('part_qty = ?'); params.push(q);
     }
     if (body.cost !== undefined) {
-      const co = Number(body.cost);
-      if (Number.isNaN(co)) return fail(c, ERR.INVALID_NUMBER, '费用必须是数字');
+      const co = body.cost === null || body.cost === '' ? null : Number(body.cost);
+      if (co !== null) {
+        if (Number.isNaN(co)) return fail(c, ERR.INVALID_NUMBER, '费用必须是数字');
+        if (co < 0) return fail(c, ERR.INVALID_NUMBER, '费用不能为负数');
+      }
       fields.push('cost = ?'); params.push(co);
     }
     if (!fields.length) return fail(c, ERR.VALIDATION_ERROR, '没有要修改的字段');
@@ -143,7 +158,13 @@ export function partsCostsRoutes(): Hono<AppEnv> {
     const tagNo = String(body.tag_no || '').trim();
     if (!repairNo && !tagNo) return fail(c, ERR.VALIDATION_ERROR, '必须关联维修单或设备');
     const hours = body.hours === undefined || body.hours === '' ? null : Number(body.hours);
-    if (hours !== null && Number.isNaN(hours)) return fail(c, ERR.INVALID_NUMBER, '工时必须是数字');
+    if (hours !== null) {
+      if (Number.isNaN(hours)) return fail(c, ERR.INVALID_NUMBER, '工时必须是数字');
+      if (hours < 0) return fail(c, ERR.INVALID_NUMBER, '工时不能为负数');
+    }
+    if (body.cost_date && !isValidDateString(String(body.cost_date))) {
+      return fail(c, ERR.INVALID_DATE, '费用日期不合法');
+    }
 
     await c.env.DB.prepare(
       `INSERT INTO cost (repair_no, tag_no, cost_type, amount, hours, cost_date, remark, created_by)
@@ -169,17 +190,28 @@ export function partsCostsRoutes(): Hono<AppEnv> {
     }
     const fields: string[] = [];
     const params: unknown[] = [];
-    for (const key of ['cost_type', 'cost_date', 'remark'] as const) {
+    for (const key of ['cost_type', 'remark'] as const) {
       if (body[key] !== undefined) { fields.push(`${key} = ?`); params.push(String(body[key]).trim()); }
+    }
+    if (body.cost_date !== undefined) {
+      if (body.cost_date && !isValidDateString(String(body.cost_date))) {
+        return fail(c, ERR.INVALID_DATE, '费用日期不合法');
+      }
+      fields.push('cost_date = ?');
+      params.push(body.cost_date ? String(body.cost_date).trim() : null);
     }
     if (body.amount !== undefined) {
       const a = Number(body.amount);
       if (Number.isNaN(a)) return fail(c, ERR.INVALID_NUMBER, '金额不合法');
+      if (a < 0) return fail(c, ERR.INVALID_NUMBER, '金额不能为负数');
       fields.push('amount = ?'); params.push(a);
     }
     if (body.hours !== undefined) {
-      const h = Number(body.hours);
-      if (Number.isNaN(h)) return fail(c, ERR.INVALID_NUMBER, '工时不合法');
+      const h = body.hours === null || body.hours === '' ? null : Number(body.hours);
+      if (h !== null) {
+        if (Number.isNaN(h)) return fail(c, ERR.INVALID_NUMBER, '工时不合法');
+        if (h < 0) return fail(c, ERR.INVALID_NUMBER, '工时不能为负数');
+      }
       fields.push('hours = ?'); params.push(h);
     }
     if (!fields.length) return fail(c, ERR.VALIDATION_ERROR, '没有要修改的字段');
