@@ -167,7 +167,7 @@ export function photoRoutes(): Hono<AppEnv> {
       .all();
 
     const now = Math.floor(Date.now() / 1000);
-    const withUrl = await Promise.all(results.map(async (p) => ({
+    const withUrl = await Promise.all(results.map(async ({ object_key: _ok, ...p }) => ({
       ...p,
       image_url: `/api/photo/${p.id}/file?exp=${now + ACCESS_TTL}&k=${await signAccess(c.env.FILE_ACCESS_SECRET, Number(p.id), now + ACCESS_TTL)}`,
       thumb_url: p.thumbnail_key

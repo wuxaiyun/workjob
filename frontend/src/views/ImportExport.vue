@@ -14,9 +14,9 @@
         </select>
         <button class="secondary" :disabled="!rows.length || busy" @click="run(true)">预演校验</button>
         <button :disabled="!rows.length || busy" @click="run(false)">正式导入</button>
-        <button type="button" class="secondary" @click="downloadTemplate">下载导入模板</button>
+        <button type="button" class="secondary" :disabled="!templateReady" @click="downloadTemplate">{{ templateReady ? '下载导入模板' : '模板加载中…' }}</button>
       </div>
-      <p v-if="fileInfo" class="hint">已读取：{{ fileInfo }}，识别 {{ rows.length }} 行（不合规行列将被跳过）</p>
+      <p v-if="fileInfo" class="hint">已读取：{{ fileInfo }}，识别 {{ rows.length }} 行（单次最多 5000 行；不合规行列将被跳过）</p>
 
       <template v-if="result">
         <div class="result-box">
@@ -99,6 +99,7 @@ const result = ref(null);
 const logs = ref([]);
 const error = ref('');
 const error2 = ref('');
+const templateReady = ref(false);
 
 const categories = ref([]);
 const statuses = ['在用', '停用', '报废'];
@@ -236,15 +237,17 @@ async function loadLogs() {
 onMounted(async () => {
   loadLogs();
   try {
-    const body = await api.get('/api/dicts?type=' + encodeURIComponent('设备类别'));
-    if (body.data.items?.length) categories.value = body.data.items.map((x) => x.value);
-  } catch { /* ignore */ }
-  try {
     const body = await listFieldConfig();
     const items = body.data || [];
+    // 先加载分类专属字段，再放开「下载导入模板」，避免模板缺列
     for (const f of items) {
       if (f.field_label && !(f.field_label in HEADER_MAP)) HEADER_MAP[f.field_label] = f.field_key;
     }
+  } catch { /* ignore */ }
+  templateReady.value = true;
+  try {
+    const body = await api.get('/api/dicts?type=' + encodeURIComponent('设备类别'));
+    if (body.data.items?.length) categories.value = body.data.items.map((x) => x.value);
   } catch { /* ignore */ }
 });
 </script>

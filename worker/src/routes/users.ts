@@ -110,7 +110,7 @@ export function userRoutes(): Hono<AppEnv> {
       `INSERT INTO operation_log (operator, action, target_table, target_key, new_value)
        VALUES (?, '编辑', 'users', ?, ?)`
     )
-      .bind(op.username, String(id), JSON.stringify(body))
+      .bind(op.username, String(id), JSON.stringify({ role: body.role, real_name: body.real_name, status: body.status }))
       .run();
 
     return ok(c, { id }, '用户已更新');

@@ -228,7 +228,7 @@ export function importExportRoutes(): Hono<AppEnv> {
     )
       .bind(...bind)
       .all();
-    const rows = results.map((r) => {
+    const rows = results.map(({ id: _i, version: _v, deleted_at: _da, deleted_by: _db, ...r }) => {
       let extraData: Record<string, unknown> = {};
       try {
         extraData = r.extra_data ? JSON.parse(r.extra_data as string) : {};
