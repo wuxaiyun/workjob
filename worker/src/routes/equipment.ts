@@ -198,7 +198,7 @@ export function equipmentRoutes(): Hono<AppEnv> {
       ? JSON.stringify(body.extra_data)
       : null;
 
-    await c.env.DB.prepare(
+    const insStmt = c.env.DB.prepare(
       `INSERT INTO equipment
         (tag_no, name, category, project, project_no, department, location, model,
          manufacturer, supplier, factory_date, factory_no, commission_date, asset_no,
@@ -230,15 +230,15 @@ export function equipmentRoutes(): Hono<AppEnv> {
         extraRaw,
         user.username,
         user.username
-      )
-      .run();
+      );
 
-    await c.env.DB.prepare(
-      `INSERT INTO operation_log (operator, action, target_table, target_key, new_value)
-       VALUES (?, ?, 'equipment', ?, ?)`
-    )
-      .bind(user.username, mode === 'quick' ? '快速新增' : '新增', tagNo, JSON.stringify({ name, category }))
-      .run();
+    await c.env.DB.batch([
+      insStmt,
+      c.env.DB.prepare(
+        `INSERT INTO operation_log (operator, action, target_table, target_key, new_value)
+         VALUES (?, ?, 'equipment', ?, ?)`
+      ).bind(user.username, mode === 'quick' ? '快速新增' : '新增', tagNo, JSON.stringify({ name, category })),
+    ]);
 
     return ok(c, { tag_no: tagNo }, '新增成功');
   });
@@ -312,18 +312,15 @@ export function equipmentRoutes(): Hono<AppEnv> {
       row.version,
     ];
 
-    await c.env.DB.prepare(
-      `UPDATE equipment SET ${sets.join(', ')} WHERE tag_no = ? AND version = ?`
-    )
-      .bind(...params)
-      .run();
-
-    await c.env.DB.prepare(
-      `INSERT INTO operation_log (operator, action, target_table, target_key, new_value)
-       VALUES (?, '修改', 'equipment', ?, ?)`
-    )
-      .bind(user.username, tagNo, JSON.stringify(editable))
-      .run();
+    await c.env.DB.batch([
+      c.env.DB.prepare(
+        `UPDATE equipment SET ${sets.join(', ')} WHERE tag_no = ? AND version = ?`
+      ).bind(...params),
+      c.env.DB.prepare(
+        `INSERT INTO operation_log (operator, action, target_table, target_key, new_value)
+         VALUES (?, '修改', 'equipment', ?, ?)`
+      ).bind(user.username, tagNo, JSON.stringify(editable)),
+    ]);
 
     return ok(c, { tag_no: tagNo }, '修改成功');
   });
@@ -352,18 +349,15 @@ export function equipmentRoutes(): Hono<AppEnv> {
       .first<{ id: number; status: string }>();
     if (!row) return fail(c, ERR.EQUIPMENT_NOT_FOUND, '设备不存在', 404);
 
-    await c.env.DB.prepare(
-      `UPDATE equipment SET status = ?, updated_at = ?, updated_by = ? WHERE tag_no = ?`
-    )
-      .bind(status, nowString(), user.username, tagNo)
-      .run();
-
-    await c.env.DB.prepare(
-      `INSERT INTO operation_log (operator, action, target_table, target_key, old_value, new_value)
-       VALUES (?, '状态变更', 'equipment', ?, ?, ?)`
-    )
-      .bind(user.username, tagNo, row.status, status)
-      .run();
+    await c.env.DB.batch([
+      c.env.DB.prepare(
+        `UPDATE equipment SET status = ?, updated_at = ?, updated_by = ? WHERE tag_no = ?`
+      ).bind(status, nowString(), user.username, tagNo),
+      c.env.DB.prepare(
+        `INSERT INTO operation_log (operator, action, target_table, target_key, old_value, new_value)
+         VALUES (?, '状态变更', 'equipment', ?, ?, ?)`
+      ).bind(user.username, tagNo, row.status, status),
+    ]);
 
     return ok(c, { tag_no: tagNo }, `已${status === '停用' ? '停用' : '更新状态'}`);
   });
@@ -380,18 +374,15 @@ export function equipmentRoutes(): Hono<AppEnv> {
       .first<{ id: number; name: string; status: string }>();
     if (!row) return fail(c, ERR.EQUIPMENT_NOT_FOUND, '设备不存在', 404);
 
-    await c.env.DB.prepare(
-      `UPDATE equipment SET deleted_at = ?, deleted_by = ?, status = '停用', updated_at = ?, updated_by = ? WHERE tag_no = ?`
-    )
-      .bind(nowString(), user.username, nowString(), user.username, tagNo)
-      .run();
-
-    await c.env.DB.prepare(
-      `INSERT INTO operation_log (operator, action, target_table, target_key, old_value, new_value)
-       VALUES (?, '删除', 'equipment', ?, ?, ?)`
-    )
-      .bind(user.username, tagNo, JSON.stringify({ name: row.name, status: row.status }), '停用(回收站)')
-      .run();
+    await c.env.DB.batch([
+      c.env.DB.prepare(
+        `UPDATE equipment SET deleted_at = ?, deleted_by = ?, status = '停用', updated_at = ?, updated_by = ? WHERE tag_no = ?`
+      ).bind(nowString(), user.username, nowString(), user.username, tagNo),
+      c.env.DB.prepare(
+        `INSERT INTO operation_log (operator, action, target_table, target_key, old_value, new_value)
+         VALUES (?, '删除', 'equipment', ?, ?, ?)`
+      ).bind(user.username, tagNo, JSON.stringify({ name: row.name, status: row.status }), '停用(回收站)'),
+    ]);
 
     return ok(c, { tag_no: tagNo }, '已移入回收站');
   });

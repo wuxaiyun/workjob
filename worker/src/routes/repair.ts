@@ -145,28 +145,33 @@ export function repairRoutes(): Hono<AppEnv> {
     const worker = String(body.worker || user.real_name || user.username).trim();
 
     // 生成单号 + 插入（repair_no 有 UNIQUE 约束，并发冲突时重试生成新单号）
+    // 业务插入与操作日志合并为一个原子 batch
     let repairNo = '';
     let insId = 0;
     let attempt = 0;
     for (; attempt < 5; attempt++) {
       repairNo = await nextRepairNo(c.env.DB);
       try {
-        const ins = await c.env.DB.prepare(
-          `INSERT INTO repair
-            (repair_no, tag_no, equipment_name_snapshot, project_snapshot, department_snapshot, location_snapshot,
-             report_date, repair_date, repair_type, status, worker, fault_desc, cause,
-             repair_content, action, remark, created_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        )
-          .bind(
+        const results = await c.env.DB.batch([
+          c.env.DB.prepare(
+            `INSERT INTO repair
+              (repair_no, tag_no, equipment_name_snapshot, project_snapshot, department_snapshot, location_snapshot,
+               report_date, repair_date, repair_type, status, worker, fault_desc, cause,
+               repair_content, action, remark, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(
             repairNo, tagNo, equip.name, equip.project ?? null, equip.department ?? null, equip.location ?? null,
             reportDate, body.repair_date ? String(body.repair_date).trim() : null, repairType, status, worker,
             faultDesc, body.cause ? String(body.cause).trim() : null,
             repairContent, body.action ? String(body.action).trim() : null,
             body.remark ? String(body.remark).trim() : null, user.username
-          )
-          .run();
-        insId = Number(ins.meta.last_row_id);
+          ),
+          c.env.DB.prepare(
+            `INSERT INTO operation_log (operator, action, target_table, target_key, new_value)
+             VALUES (?, '新增', 'repair', ?, ?)`
+          ).bind(user.username, repairNo, JSON.stringify({ tag_no: tagNo, fault_desc: faultDesc })),
+        ]);
+        insId = Number(results[0].meta.last_row_id);
         break;
       } catch (e) {
         const msg = String((e as Error)?.message || e);
@@ -177,13 +182,6 @@ export function repairRoutes(): Hono<AppEnv> {
       }
     }
     if (attempt >= 5) return fail(c, ERR.DATABASE_ERROR, '维修单号生成冲突，请重试', 500);
-
-    await c.env.DB.prepare(
-      `INSERT INTO operation_log (operator, action, target_table, target_key, new_value)
-       VALUES (?, '新增', 'repair', ?, ?)`
-    )
-      .bind(user.username, repairNo, JSON.stringify({ tag_no: tagNo, fault_desc: faultDesc }))
-      .run();
 
     return ok(c, { repair_no: repairNo, id: insId }, '维修记录创建成功');
   });
@@ -236,16 +234,13 @@ export function repairRoutes(): Hono<AppEnv> {
     params.push(nowString());
     params.push(id, row.version);
 
-    await c.env.DB.prepare(`UPDATE repair SET ${sets.join(', ')} WHERE id = ? AND version = ?`)
-      .bind(...params)
-      .run();
-
-    await c.env.DB.prepare(
-      `INSERT INTO operation_log (operator, action, target_table, target_key, new_value)
-       VALUES (?, '修改', 'repair', ?, ?)`
-    )
-      .bind(user.username, row.repair_no, JSON.stringify(upd))
-      .run();
+    await c.env.DB.batch([
+      c.env.DB.prepare(`UPDATE repair SET ${sets.join(', ')} WHERE id = ? AND version = ?`).bind(...params),
+      c.env.DB.prepare(
+        `INSERT INTO operation_log (operator, action, target_table, target_key, new_value)
+         VALUES (?, '修改', 'repair', ?, ?)`
+      ).bind(user.username, row.repair_no, JSON.stringify(upd)),
+    ]);
 
     return ok(c, { id, repair_no: row.repair_no }, '修改成功');
   });
@@ -319,16 +314,14 @@ export function repairRoutes(): Hono<AppEnv> {
       .first<{ id: number; repair_no: string }>();
     if (!row) return fail(c, ERR.REPAIR_NOT_FOUND, '维修记录不存在', 404);
 
-    await c.env.DB.prepare(`UPDATE repair SET deleted_at = ?, deleted_by = ? WHERE id = ?`)
-      .bind(nowString(), user.username, id)
-      .run();
-
-    await c.env.DB.prepare(
-      `INSERT INTO operation_log (operator, action, target_table, target_key)
-       VALUES (?, '删除', 'repair', ?)`
-    )
-      .bind(user.username, row.repair_no)
-      .run();
+    await c.env.DB.batch([
+      c.env.DB.prepare(`UPDATE repair SET deleted_at = ?, deleted_by = ? WHERE id = ?`)
+        .bind(nowString(), user.username, id),
+      c.env.DB.prepare(
+        `INSERT INTO operation_log (operator, action, target_table, target_key)
+         VALUES (?, '删除', 'repair', ?)`
+      ).bind(user.username, row.repair_no),
+    ]);
 
     return ok(c, { id }, '已删除（可在回收站恢复）');
   });

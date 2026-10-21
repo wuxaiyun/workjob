@@ -153,11 +153,11 @@ export function materialRoutes(): Hono<AppEnv> {
     if (stock === null) return fail(c, ERR.VALIDATION_ERROR, '库存必须是整数');
     const targets = normalizeTargets(body.usage_targets);
 
-    await c.env.DB.prepare(
-      `UPDATE material SET name = ?, model = ?, usage_targets = ?, stock = ?, remark = ?,
-              updated_at = ?, updated_by = ? WHERE id = ?`
-    )
-      .bind(
+    await c.env.DB.batch([
+      c.env.DB.prepare(
+        `UPDATE material SET name = ?, model = ?, usage_targets = ?, stock = ?, remark = ?,
+                updated_at = ?, updated_by = ? WHERE id = ?`
+      ).bind(
         name,
         body.model ? String(body.model).trim() : null,
         JSON.stringify(targets),
@@ -166,15 +166,12 @@ export function materialRoutes(): Hono<AppEnv> {
         nowString(),
         user.username,
         id
-      )
-      .run();
-
-    await c.env.DB.prepare(
-      `INSERT INTO operation_log (operator, action, target_table, target_key, new_value)
-       VALUES (?, '修改', 'material', ?, ?)`
-    )
-      .bind(user.username, String(id), JSON.stringify({ name, stock, targets }))
-      .run();
+      ),
+      c.env.DB.prepare(
+        `INSERT INTO operation_log (operator, action, target_table, target_key, new_value)
+         VALUES (?, '修改', 'material', ?, ?)`
+      ).bind(user.username, String(id), JSON.stringify({ name, stock, targets })),
+    ]);
 
     return ok(c, { id }, '修改成功');
   });
@@ -208,18 +205,15 @@ export function materialRoutes(): Hono<AppEnv> {
     }
     if (next < 0) return fail(c, ERR.VALIDATION_ERROR, '库存不能小于 0');
 
-    await c.env.DB.prepare(
-      `UPDATE material SET stock = ?, updated_at = ?, updated_by = ? WHERE id = ?`
-    )
-      .bind(next, nowString(), user.username, id)
-      .run();
-
-    await c.env.DB.prepare(
-      `INSERT INTO operation_log (operator, action, target_table, target_key, field_name, old_value, new_value)
-       VALUES (?, '库存变更', 'material', ?, 'stock', ?, ?)`
-    )
-      .bind(user.username, String(id), String(row.stock), String(next))
-      .run();
+    await c.env.DB.batch([
+      c.env.DB.prepare(
+        `UPDATE material SET stock = ?, updated_at = ?, updated_by = ? WHERE id = ?`
+      ).bind(next, nowString(), user.username, id),
+      c.env.DB.prepare(
+        `INSERT INTO operation_log (operator, action, target_table, target_key, field_name, old_value, new_value)
+         VALUES (?, '库存变更', 'material', ?, 'stock', ?, ?)`
+      ).bind(user.username, String(id), String(row.stock), String(next)),
+    ]);
 
     return ok(c, { id, stock: next }, '库存已更新');
   });
@@ -233,13 +227,13 @@ export function materialRoutes(): Hono<AppEnv> {
       .first<{ id: number; name: string }>();
     if (!row) return fail(c, ERR.VALIDATION_ERROR, '材料不存在', 404);
 
-    await c.env.DB.prepare(`DELETE FROM material WHERE id = ?`).bind(id).run();
-    await c.env.DB.prepare(
-      `INSERT INTO operation_log (operator, action, target_table, target_key, old_value)
-       VALUES (?, '删除', 'material', ?, ?)`
-    )
-      .bind(user.username, String(id), JSON.stringify({ name: row.name }))
-      .run();
+    await c.env.DB.batch([
+      c.env.DB.prepare(`DELETE FROM material WHERE id = ?`).bind(id),
+      c.env.DB.prepare(
+        `INSERT INTO operation_log (operator, action, target_table, target_key, old_value)
+         VALUES (?, '删除', 'material', ?, ?)`
+      ).bind(user.username, String(id), JSON.stringify({ name: row.name })),
+    ]);
 
     return ok(c, { id }, '删除成功');
   });

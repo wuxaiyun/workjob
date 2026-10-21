@@ -159,14 +159,15 @@ export function documentRoutes(): Hono<AppEnv> {
       .first<{ id: number; object_key: string; title: string }>();
     if (!row) return fail(c, ERR.VALIDATION_ERROR, '文档不存在', 404);
 
-    await c.env.DB.prepare(`DELETE FROM document WHERE id = ?`).bind(id).run();
+    // DB 删除 + 日志原子化，再删 R2（R2 失败不影响 DB 一致性）
+    await c.env.DB.batch([
+      c.env.DB.prepare(`DELETE FROM document WHERE id = ?`).bind(id),
+      c.env.DB.prepare(
+        `INSERT INTO operation_log (operator, action, target_table, target_key, old_value)
+         VALUES (?, '删除', 'document', ?, ?)`
+      ).bind(user.username, String(id), JSON.stringify({ title: row.title })),
+    ]);
     await c.env.PHOTOS.delete(row.object_key).catch(() => null);
-    await c.env.DB.prepare(
-      `INSERT INTO operation_log (operator, action, target_table, target_key, old_value)
-       VALUES (?, '删除', 'document', ?, ?)`
-    )
-      .bind(user.username, String(id), JSON.stringify({ title: row.title }))
-      .run();
 
     return ok(c, { id }, '删除成功');
   });

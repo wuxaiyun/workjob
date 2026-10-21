@@ -14,13 +14,18 @@ function refTables(dictType: string): string[] | null {
 }
 
 // 级联更新引用表中的旧值（历史快照类字段禁止级联：repair 表不改）
-async function cascadeRename(db: D1Database, dictType: string, oldValue: string, newValue: string): Promise<void> {
+// 返回语句列表，供调用方与其他写入合并为单一原子 batch
+function cascadeRename(db: D1Database, dictType: string, oldValue: string, newValue: string): D1PreparedStatement[] {
   if (dictType === '设备类别') {
-    await db.prepare(`UPDATE equipment SET category = ? WHERE category = ?`).bind(newValue, oldValue).run();
-    await db.prepare(`UPDATE field_config SET category = ? WHERE category = ?`).bind(newValue, oldValue).run();
-  } else if (dictType === '部门') {
-    await db.prepare(`UPDATE equipment SET department = ? WHERE department = ?`).bind(newValue, oldValue).run();
+    return [
+      db.prepare(`UPDATE equipment SET category = ? WHERE category = ?`).bind(newValue, oldValue),
+      db.prepare(`UPDATE field_config SET category = ? WHERE category = ?`).bind(newValue, oldValue),
+    ];
   }
+  if (dictType === '部门') {
+    return [db.prepare(`UPDATE equipment SET department = ? WHERE department = ?`).bind(newValue, oldValue)];
+  }
+  return [];
 }
 
 export function dictRoutes(): Hono<AppEnv> {
@@ -76,18 +81,16 @@ export function dictRoutes(): Hono<AppEnv> {
       .bind(dictType)
       .first<{ m: number | null }>();
 
-    const ins = await c.env.DB.prepare(
-      `INSERT INTO dict (dict_type, dict_value, sort_order, remark) VALUES (?, ?, ?, ?)`
-    )
-      .bind(dictType, dictValue, (maxSort?.m ?? 0) + 1, body.remark ? String(body.remark) : null)
-      .run();
-
-    await c.env.DB.prepare(
-      `INSERT INTO operation_log (operator, action, target_table, target_key, new_value)
-       VALUES (?, '新增', 'dict', ?, ?)`
-    )
-      .bind(user.username, `${dictType}:${dictValue}`, dictValue)
-      .run();
+    const stmts = [
+      c.env.DB.prepare(`INSERT INTO dict (dict_type, dict_value, sort_order, remark) VALUES (?, ?, ?, ?)`)
+        .bind(dictType, dictValue, (maxSort?.m ?? 0) + 1, body.remark ? String(body.remark) : null),
+      c.env.DB.prepare(
+        `INSERT INTO operation_log (operator, action, target_table, target_key, new_value)
+         VALUES (?, '新增', 'dict', ?, ?)`
+      ).bind(user.username, `${dictType}:${dictValue}`, dictValue),
+    ];
+    const results = await c.env.DB.batch(stmts);
+    const ins = results[0];
 
     return ok(c, { id: Number(ins.meta.last_row_id) }, '新增成功');
   });
@@ -121,17 +124,14 @@ export function dictRoutes(): Hono<AppEnv> {
       .first();
     if (dup) return fail(c, ERR.VALIDATION_ERROR, `「${newValue}」已存在`);
 
-    await c.env.DB.prepare(`UPDATE dict SET dict_value = ? WHERE id = ?`)
-      .bind(newValue, id)
-      .run();
-    await cascadeRename(c.env.DB, row.dict_type, row.dict_value, newValue);
-
-    await c.env.DB.prepare(
-      `INSERT INTO operation_log (operator, action, target_table, target_key, old_value, new_value)
-       VALUES (?, '修改', 'dict', ?, ?, ?)`
-    )
-      .bind(user.username, `${row.dict_type}:${newValue}`, row.dict_value, newValue)
-      .run();
+    await c.env.DB.batch([
+      c.env.DB.prepare(`UPDATE dict SET dict_value = ? WHERE id = ?`).bind(newValue, id),
+      ...cascadeRename(c.env.DB, row.dict_type, row.dict_value, newValue),
+      c.env.DB.prepare(
+        `INSERT INTO operation_log (operator, action, target_table, target_key, old_value, new_value)
+         VALUES (?, '修改', 'dict', ?, ?, ?)`
+      ).bind(user.username, `${row.dict_type}:${newValue}`, row.dict_value, newValue),
+    ]);
 
     return ok(c, { id }, '修改成功');
   });
@@ -169,14 +169,13 @@ export function dictRoutes(): Hono<AppEnv> {
       }
     }
 
-    await c.env.DB.prepare(`DELETE FROM dict WHERE id = ?`).bind(id).run();
-
-    await c.env.DB.prepare(
-      `INSERT INTO operation_log (operator, action, target_table, target_key, old_value)
-       VALUES (?, '删除', 'dict', ?, ?)`
-    )
-      .bind(user.username, `${row.dict_type}:${row.dict_value}`, row.dict_value)
-      .run();
+    await c.env.DB.batch([
+      c.env.DB.prepare(`DELETE FROM dict WHERE id = ?`).bind(id),
+      c.env.DB.prepare(
+        `INSERT INTO operation_log (operator, action, target_table, target_key, old_value)
+         VALUES (?, '删除', 'dict', ?, ?)`
+      ).bind(user.username, `${row.dict_type}:${row.dict_value}`, row.dict_value),
+    ]);
 
     return ok(c, { id }, '删除成功');
   });
