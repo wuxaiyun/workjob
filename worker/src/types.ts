@@ -1,6 +1,7 @@
 export interface Env {
   DB: D1Database;
   PHOTOS: R2Bucket;
+  ASSETS: Fetcher;
   JWT_SECRET: string;
   JWT_EXPIRES_IN: string;
   FILE_ACCESS_SECRET: string;

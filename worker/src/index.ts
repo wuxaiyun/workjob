@@ -33,10 +33,13 @@ app.route('/api', userRoutes());
 app.route('/api', materialRoutes());
 app.route('/api', documentRoutes());
 
-// API 404
+// API 404 / 前端 SPA 兜底
 app.notFound((c) => {
   if (c.req.path.startsWith('/api')) {
     return fail(c, 'NOT_FOUND', '接口不存在', 404);
+  }
+  if ((c.req.method === 'GET' || c.req.method === 'HEAD') && c.env.ASSETS) {
+    return c.env.ASSETS.fetch(new Request(new URL('/index.html', c.req.url)));
   }
   return fail(c, 'NOT_FOUND', '请求不存在', 404);
 });
