@@ -91,7 +91,7 @@
           </label>
           <label class="full">备注<input v-model="form.remark" /></label>
           <div class="buttons full">
-            <button type="submit">保存</button>
+            <button type="submit" :disabled="saving">{{ saving ? '保存中…' : '保存' }}</button>
             <button type="button" class="secondary" @click="showForm = false">取消</button>
           </div>
         </form>
@@ -116,6 +116,7 @@ const items = ref([]);
 const alerts = ref({ calibrations: [], mandatory: [] });
 const error = ref('');
 const showForm = ref(false);
+const saving = ref(false);
 const equipOptions = ref([]);
 const resultList = ['合格', '不合格', '待检定', '超期未检'];
 const emptyForm = () => ({ id: null, tag_no: '', calibration_no: '', cert_no: '', done_date: '', due_date: '', result: '合格', remark: '' });
@@ -156,8 +157,10 @@ function editRecord(r) {
 }
 
 async function save() {
+  if (saving.value) return;
   const payload = { ...form.value };
   delete payload.id;
+  saving.value = true;
   try {
     if (form.value.id) {
       await updateCalibration(form.value.id, payload);
@@ -170,6 +173,8 @@ async function save() {
     router.push({ name: 'home' });
   } catch (e) {
     alert(e.error?.message || '保存失败');
+  } finally {
+    saving.value = false;
   }
 }
 

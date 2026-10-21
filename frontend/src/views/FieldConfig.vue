@@ -77,7 +77,7 @@
             <input v-model="isExport" type="checkbox" /> 导出包含
           </label>
           <div class="buttons full">
-            <button type="submit">保存</button>
+            <button type="submit" :disabled="saving">{{ saving ? '保存中…' : '保存' }}</button>
             <button type="button" class="secondary" @click="showForm = false">取消</button>
           </div>
         </form>
@@ -106,6 +106,7 @@ const isDetail = ref(true);
 const isExport = ref(true);
 const emptyForm = () => ({ id: null, category: '', field_key: '', field_label: '', group_name: '', sort_order: 0, default_value: '' });
 const form = ref(emptyForm());
+const saving = ref(false);
 
 function yn(v) {
   return v === '1' || v === 1 || v === true ? '是' : '否';
@@ -140,6 +141,7 @@ function openEdit(f) {
 }
 
 async function save() {
+  if (saving.value) return;
   const payload = {
     category: form.value.category,
     field_key: form.value.field_key,
@@ -152,6 +154,7 @@ async function save() {
     is_visible_detail: isDetail.value ? '1' : '0',
     is_visible_export: isExport.value ? '1' : '0',
   };
+  saving.value = true;
   try {
     if (form.value.id) {
       await updateFieldConfig(form.value.id, payload);
@@ -163,6 +166,8 @@ async function save() {
     router.push({ name: 'home' });
   } catch (e) {
     alert(e.error?.message || '保存失败');
+  } finally {
+    saving.value = false;
   }
 }
 

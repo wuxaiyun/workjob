@@ -91,7 +91,7 @@
           <input v-model="part.part_unit" placeholder="单位" />
           <input v-model="part.replace_date" type="date" />
           <input v-model.number="part.cost" type="number" min="0" step="0.01" placeholder="金额" />
-          <button type="submit" class="secondary">添加备件</button>
+          <button type="submit" class="secondary" :disabled="busyPart">{{ busyPart ? '提交中…' : '添加备件' }}</button>
         </form>
       </div>
 
@@ -124,7 +124,7 @@
           <input v-model.number="cost.amount" type="number" min="0" step="0.01" placeholder="金额" />
           <input v-model.number="cost.hours" type="number" min="0" step="0.5" placeholder="工时" />
           <input v-model="cost.cost_date" type="date" />
-          <button type="submit" class="secondary">登记费用</button>
+          <button type="submit" class="secondary" :disabled="busyCost">{{ busyCost ? '提交中…' : '登记费用' }}</button>
         </form>
       </div>
 
@@ -188,6 +188,8 @@ const preview = ref('');
 const nextStatus = ref('');
 const part = ref({ part_name: '', part_model: '', part_qty: 1, part_unit: '只', replace_date: '', cost: null });
 const cost = ref({ cost_type: '维修费', amount: null, hours: null, cost_date: '' });
+const busyPart = ref(false);
+const busyCost = ref(false);
 const costTypes = ['维修费', '材料费', '人工费', '外协费', '检修费', '其他'];
 
 const canEdit = computed(() => {
@@ -247,12 +249,16 @@ async function del() {
 }
 
 async function addPart() {
+  if (busyPart.value) return;
+  busyPart.value = true;
   try {
     await createPart({ repair_no: d.value.repair_no, tag_no: d.value.tag_no, ...part.value });
     part.value = { part_name: '', part_model: '', part_qty: 1, part_unit: '只', replace_date: '', cost: null };
     await load();
   } catch (e) {
     alert(e.error?.message || '添加失败');
+  } finally {
+    busyPart.value = false;
   }
 }
 
@@ -267,12 +273,16 @@ async function delPart(p) {
 }
 
 async function addCost() {
+  if (busyCost.value) return;
+  busyCost.value = true;
   try {
     await createCost({ repair_no: d.value.repair_no, tag_no: d.value.tag_no, ...cost.value });
     cost.value = { cost_type: '维修费', amount: null, hours: null, cost_date: '' };
     await load();
   } catch (e) {
     alert(e.error?.message || '登记失败');
+  } finally {
+    busyCost.value = false;
   }
 }
 

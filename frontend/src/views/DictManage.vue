@@ -28,7 +28,7 @@
                      @change="onEdit(item, $event)" class="value-input" />
             </td>
             <td>
-              <button v-if="dirtyIds.has(item.id)" class="secondary" @click="saveEdit(item)">保存</button>
+              <button v-if="dirtyIds.has(item.id)" class="secondary" :disabled="busy" @click="saveEdit(item)">{{ busy ? '保存中…' : '保存' }}</button>
               <a href="javascript:;" @click="removeItem(item)">删除</a>
             </td>
           </tr>
@@ -38,7 +38,7 @@
 
       <div v-if="currentType" class="add-bar">
         <input v-model="newValue" placeholder="输入新字典值，回车或点击新增" @keyup.enter="addItem" />
-        <button @click="addItem" :disabled="!currentType">新增</button>
+        <button @click="addItem" :disabled="!currentType || busy">{{ busy ? '新增中…' : '新增' }}</button>
       </div>
     </div>
   </div>
@@ -58,6 +58,7 @@ const newValue = ref('');
 const error = ref('');
 const dirtyIds = ref(new Set());
 const edited = ref({}); // id -> newValue
+const busy = ref(false);
 
 const dictTypes = computed(() => Object.keys(allDicts.value).sort());
 
@@ -80,12 +81,14 @@ function onEdit(item, e) {
 }
 
 async function saveEdit(item) {
+  if (busy.value) return;
   const v = (edited.value[item.id] || '').trim();
   if (!v) {
     error.value = '字典值不能为空';
     await load();
     return;
   }
+  busy.value = true;
   try {
     await api.put(`/api/dicts/${item.id}`, { dict_value: v });
     dirtyIds.value.delete(item.id);
@@ -96,12 +99,15 @@ async function saveEdit(item) {
   } catch (e) {
     error.value = e.error?.message || '保存失败';
     await load();
+  } finally {
+    busy.value = false;
   }
 }
 
 async function addItem() {
   const v = newValue.value.trim();
-  if (!v) return;
+  if (!v || busy.value) return;
+  busy.value = true;
   try {
     await api.post('/api/dicts', { dict_type: currentType.value, dict_value: v });
     newValue.value = '';
@@ -109,6 +115,8 @@ async function addItem() {
     await load();
   } catch (e) {
     error.value = e.error?.message || '新增失败';
+  } finally {
+    busy.value = false;
   }
 }
 
