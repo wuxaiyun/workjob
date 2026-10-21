@@ -16,11 +16,15 @@
       <table v-if="items.length">
         <thead>
           <tr>
-            <th>材料名称</th><th>型号</th><th>使用设备</th><th>库存</th><th>备注</th><th>操作</th>
+            <th></th><th>材料名称</th><th>型号</th><th>使用设备</th><th>库存</th><th>备注</th><th>操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="m in items" :key="m.id">
+            <td class="photo-cell">
+              <img v-if="m.thumb_url || m.image_url" :src="m.thumb_url || m.image_url" alt="" />
+              <span v-else class="photo-none">-</span>
+            </td>
             <td>{{ m.name }}</td>
             <td>{{ m.model || '-' }}</td>
             <td class="targets">
@@ -72,6 +76,20 @@
             <p class="picked">已选 {{ form.usage_targets.length }} 项</p>
           </div>
 
+          <div class="full photo-picker">
+            <p class="picker-title">材料照片（jpg / png / webp / gif，≤10MB，保存时上传）</p>
+            <div class="photo-row">
+              <div class="photo-preview">
+                <img v-if="previewUrl" :src="previewUrl" alt="照片预览" />
+                <span v-else class="ph">未选择</span>
+              </div>
+              <div class="photo-ops">
+                <input type="file" accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif" @change="onFilePicked" />
+                <a v-if="previewUrl" href="javascript:;" class="remove" @click="clearPicked">移除</a>
+              </div>
+            </div>
+          </div>
+
           <div class="buttons full">
             <button type="submit" :disabled="saving">{{ saving ? '保存中…' : '保存' }}</button>
             <button type="button" class="secondary" @click="showForm = false">取消</button>
@@ -87,7 +105,9 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import {
   listMaterials, materialEquipmentOptions, createMaterial, updateMaterial, adjustMaterialStock, removeMaterial,
+  uploadMaterialImage, clearMaterialImage,
 } from '../api/material';
+import { makeThumbnail } from '../api/files';
 import { useAuthStore } from '../store/auth';
 
 const router = useRouter();
@@ -102,6 +122,13 @@ const saving = ref(false);
 const personalTool = ref('个人工具');
 const equipOptions = ref([]);
 const targetSearch = ref('');
+
+// 照片状态：pendingFile=新选文件；baseUrl=编辑时已有图；removeExisting=删除已有图
+const pendingFile = ref(null);
+const previewUrl = ref('');
+const baseUrl = ref('');
+const existingHasImage = ref(false);
+const removeExisting = ref(false);
 
 const emptyForm = () => ({ id: null, name: '', model: '', stock: 0, remark: '', usage_targets: [] });
 const form = ref(emptyForm());
@@ -138,6 +165,11 @@ async function load() {
 function openCreate() {
   form.value = emptyForm();
   targetSearch.value = '';
+  pendingFile.value = null;
+  previewUrl.value = '';
+  baseUrl.value = '';
+  existingHasImage.value = false;
+  removeExisting.value = false;
   showForm.value = true;
 }
 
@@ -151,7 +183,42 @@ function openEdit(m) {
     usage_targets: [...m.usage_targets],
   };
   targetSearch.value = '';
+  pendingFile.value = null;
+  baseUrl.value = m.thumb_url || m.image_url || '';
+  previewUrl.value = baseUrl.value;
+  existingHasImage.value = !!m.image_url;
+  removeExisting.value = false;
   showForm.value = true;
+}
+
+function onFilePicked(e) {
+  const f = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  if (f.size > 10 * 1024 * 1024) {
+    error.value = '图片超过 10MB 限制';
+    return;
+  }
+  if (!/\.(jpe?g|png|webp|gif)$/i.test(f.name)) {
+    error.value = '仅支持 jpg / png / webp / gif 图片';
+    return;
+  }
+  error.value = '';
+  if (previewUrl.value.startsWith('blob:')) URL.revokeObjectURL(previewUrl.value);
+  pendingFile.value = f;
+  previewUrl.value = URL.createObjectURL(f);
+  removeExisting.value = false;
+}
+
+function clearPicked() {
+  if (previewUrl.value.startsWith('blob:')) URL.revokeObjectURL(previewUrl.value);
+  pendingFile.value = null;
+  if (existingHasImage) {
+    removeExisting.value = true;
+    previewUrl.value = '';
+  } else {
+    previewUrl.value = '';
+  }
 }
 
 async function save() {
@@ -169,8 +236,29 @@ async function save() {
       remark: form.value.remark.trim(),
       usage_targets: form.value.usage_targets,
     };
-    if (form.value.id) await updateMaterial(form.value.id, payload);
-    else await createMaterial(payload);
+    let body;
+    if (form.value.id) body = await updateMaterial(form.value.id, payload);
+    else body = await createMaterial(payload);
+    const id = form.value.id || body.data.id;
+
+    // 照片在主记录保存成功后上传/清除，失败不影响已保存的数据
+    if (pendingFile.value) {
+      try {
+        const thumb = await makeThumbnail(pendingFile.value);
+        await uploadMaterialImage(id, pendingFile.value, thumb);
+      } catch (e2) {
+        error.value = '保存成功，但照片上传失败：' + (e2.error?.message || '请稍后在编辑中重试') + ' ';
+        showForm.value = false;
+        await load();
+        return;
+      }
+    } else if (removeExisting.value) {
+      try {
+        await clearMaterialImage(id);
+      } catch {
+        /* 清除失败不阻塞保存结果 */
+      }
+    }
     showForm.value = false;
     await load();
     router.push({ name: 'home' });
@@ -323,4 +411,33 @@ a.danger { color: var(--danger); }
 .chip input { width: auto; }
 .chip i { color: var(--text-light); font-style: normal; }
 .picked { font-size: 12px; color: var(--text-light); margin: 0; }
+.photo-cell { width: 56px; }
+.photo-cell img {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  display: block;
+}
+.photo-none { color: var(--text-light); }
+.photo-picker { display: flex; flex-direction: column; gap: 8px; }
+.photo-row { display: flex; gap: 14px; align-items: flex-start; }
+.photo-preview {
+  width: 120px;
+  height: 120px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #fafafa;
+  flex: none;
+}
+.photo-preview img { width: 100%; height: 100%; object-fit: cover; }
+.photo-preview .ph { font-size: 12px; color: var(--text-light); }
+.photo-ops { display: flex; flex-direction: column; gap: 8px; }
+.photo-ops input[type='file'] { font-size: 12px; }
+.photo-ops .remove { color: var(--danger); font-size: 13px; }
 </style>
